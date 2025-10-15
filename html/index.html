@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AX Staff Menu</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Poppins:wght@300;400;600&family=Fugaz+One&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container" id="staffMenu" style="display: none;">
+        <div class="menu-wrapper">
+            <!-- Header -->
+            <div class="menu-header">
+                <div class="header-left">
+                    <div class="logo-icon">
+                        <i class="fas fa-shield-halved"></i>
+                    </div>
+                    <h1 class="menu-title">STAFF PANEL</h1>
+                </div>
+                <div class="header-right">
+                    <button class="duty-btn" id="dutyBtn">
+                        <i class="fas fa-power-off"></i>
+                        <span id="dutyText">ENTRAR EN SERVICIO</span>
+                    </button>
+                    <button class="close-btn" id="closeBtn">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Navigation Tabs -->
+            <div class="menu-tabs">
+                <button class="tab-btn active" data-tab="inicio">
+                    <i class="fas fa-home"></i>
+                    <span>INICIO</span>
+                </button>
+                <button class="tab-btn" data-tab="reportes">
+                    <i class="fas fa-flag"></i>
+                    <span>REPORTES</span>
+                </button>
+                <button class="tab-btn" data-tab="archivo">
+                    <i class="fas fa-folder"></i>
+                    <span>ARCHIVO</span>
+                </button>
+                <button class="tab-btn" data-tab="items">
+                    <i class="fas fa-box"></i>
+                    <span>ITEMS</span>
+                </button>
+                <button class="tab-btn" data-tab="comidas">
+                    <i class="fas fa-utensils"></i>
+                    <span>COMIDAS</span>
+                </button>
+                <button class="tab-btn" data-tab="vehiculos">
+                    <i class="fas fa-car"></i>
+                    <span>VEHÍCULOS</span>
+                </button>
+                <button class="tab-btn" data-tab="usuarios">
+                    <i class="fas fa-users"></i>
+                    <span>USUARIOS</span>
+                </button>
+                <button class="tab-btn" data-tab="offline">
+                    <i class="fas fa-user-slash"></i>
+                    <span>OFFLINE</span>
+                </button>
+            </div>
+
+            <!-- Content Area -->
+            <div class="menu-content">
+                <!-- Tab INICIO -->
+                <div class="tab-content active" id="tab-inicio">
+                    <div class="inicio-container">
+                        <!-- Lado Izquierdo: Chat de Staff -->
+                        <div class="staff-chat-section">
+                            <div class="chat-header">
+                                <h3 class="chat-title">CHAT DE STAFF</h3>
+                                <button class="clear-chat-btn" id="clearChatBtn" title="Limpiar chat (Solo Admin)">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                            <div class="chat-messages" id="chatMessages">
+                                <!-- Los mensajes aparecerán aquí -->
+                            </div>
+                            <div class="chat-input-container">
+                                <input type="text" class="chat-input" id="chatInput" placeholder="Escribe un mensaje...">
+                                <button class="chat-send-btn" id="chatSendBtn">
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Lado Derecho: Stats y Acciones -->
+                        <div class="right-section">
+                            <!-- Stats Cards -->
+                            <div class="stats-row">
+                                <div class="stat-card-small">
+                                    <div class="stat-icon-small staff">
+                                        <i class="fas fa-user-shield"></i>
+                                    </div>
+                                    <div class="stat-info-small">
+                                        <p class="stat-label">STAFF ACTIVOS</p>
+                                        <p class="stat-number" id="staffActiveCount">0</p>
+                                    </div>
+                                </div>
+
+                                <div class="stat-card-small">
+                                    <div class="stat-icon-small players">
+                                        <i class="fas fa-users"></i>
+                                    </div>
+                                    <div class="stat-info-small">
+                                        <p class="stat-label">JUGADORES ONLINE</p>
+                                        <p class="stat-number" id="playersOnlineCount">0</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Acciones Rápidas -->
+                            <div class="quick-actions-section">
+                                <h3 class="quick-actions-title">ACCESOS RÁPIDOS</h3>
+                                <div class="quick-actions-grid">
+                                    <button class="quick-action-btn" data-action="noclip">
+                                        <i class="fas fa-ghost"></i>
+                                        <span>NOCLIP</span>
+                                    </button>
+                                    <button class="quick-action-btn" data-action="revive">
+                                        <i class="fas fa-heart"></i>
+                                        <span>REVIVIR</span>
+                                    </button>
+                                    <button class="quick-action-btn" data-action="godmode">
+                                        <i class="fas fa-shield"></i>
+                                        <span>GODMODE</span>
+                                    </button>
+                                    <button class="quick-action-btn" data-action="invisible">
+                                        <i class="fas fa-eye-slash"></i>
+                                        <span>INVISIBLE</span>
+                                    </button>
+                                    <button class="quick-action-btn" data-action="skin">
+                                        <i class="fas fa-user"></i>
+                                        <span>SKIN</span>
+                                    </button>
+                                    <button class="quick-action-btn" data-action="blips">
+                                        <i class="fas fa-map-marker-alt"></i>
+                                        <span>BLIPS</span>
+                                    </button>
+                                    <button class="quick-action-btn" data-action="tags">
+                                        <i class="fas fa-id-badge"></i>
+                                        <span>TAGS</span>
+                                    </button>
+                                    <button class="quick-action-btn" data-action="tpm">
+                                        <i class="fas fa-location-arrow"></i>
+                                        <span>TPM</span>
+                                    </button>
+                                    <button class="quick-action-btn" data-action="reviveall">
+                                        <i class="fas fa-heartbeat"></i>
+                                        <span>REVIVIR A TODOS</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <!-- Opciones del Vehículo -->
+                            <div class="vehicle-options-section">
+                                <h3 class="vehicle-options-title">OPCIONES DEL VEHÍCULO</h3>
+                                <div class="vehicle-options-grid">
+                                    <button class="quick-action-btn" data-action="repairveh">
+                                        <i class="fas fa-wrench"></i>
+                                        <span>REPARAR VEHÍCULO</span>
+                                    </button>
+                                    <button class="quick-action-btn" data-action="refuelveh">
+                                        <i class="fas fa-gas-pump"></i>
+                                        <span>LLENAR TANQUE</span>
+                                    </button>
+                                    <button class="quick-action-btn" data-action="tuningmenu">
+                                        <i class="fas fa-cogs"></i>
+                                        <span>MENU DE TUNING</span>
+                                    </button>
+                                    <button class="quick-action-btn" data-action="vehcustom">
+                                        <i class="fas fa-paint-brush"></i>
+                                        <span>CUSTOM MENU</span>
+                                    </button>
+                                    <button class="quick-action-btn" data-action="sitveh">
+                                        <i class="fas fa-chair"></i>
+                                        <span>SITVEHICLE</span>
+                                    </button>
+                                    <button class="quick-action-btn" data-action="unlockveh">
+                                        <i class="fas fa-unlock"></i>
+                                        <span>DESBLOQUEAR</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab REPORTES (placeholder) -->
+                <div class="tab-content" id="tab-reportes">
+                    <h2 class="section-title">REPORTES</h2>
+                    <p>Contenido próximamente...</p>
+                </div>
+
+                <!-- Tab ARCHIVO (placeholder) -->
+                <div class="tab-content" id="tab-archivo">
+                    <h2 class="section-title">ARCHIVO</h2>
+                    <p>Contenido próximamente...</p>
+                </div>
+
+                <!-- Tab ITEMS -->
+                <div class="tab-content" id="tab-items">
+                    <div class="items-container">
+                        <!-- Lado Izquierdo: Lista de Items -->
+                        <div class="items-left-section">
+                            <div class="items-search-header">
+                                <h3 class="items-section-title">INVENTARIO DE ITEMS</h3>
+                                <div class="items-search-box">
+                                    <i class="fas fa-search"></i>
+                                    <input type="text" id="itemSearchInput" placeholder="Buscar item...">
+                                </div>
+                            </div>
+                            <div class="items-grid" id="itemsGrid">
+                                <!-- Items se cargarán aquí dinámicamente -->
+                            </div>
+                            <!-- Paginación -->
+                            <div class="pagination-container" id="paginationContainer">
+                                <!-- Páginas se generarán aquí -->
+                            </div>
+                        </div>
+
+                        <!-- Lado Derecho: Selección -->
+                        <div class="items-right-section">
+                            <!-- Items Seleccionados -->
+                            <div class="selected-items-card">
+                                <h3 class="card-title">ITEMS SELECCIONADOS</h3>
+                                <div class="selected-items-list" id="selectedItemsList">
+                                    <p class="empty-message">No hay items seleccionados</p>
+                                </div>
+                            </div>
+
+                            <!-- Jugadores Seleccionados (con selector integrado) -->
+                            <div class="selected-players-card">
+                                <h3 class="card-title">JUGADORES SELECCIONADOS</h3>
+                                
+                                <!-- Selector de Jugadores Integrado -->
+                                <div class="custom-dropdown" id="playersDropdown">
+                                    <div class="dropdown-header" id="dropdownHeader">
+                                        <span>Seleccionar jugador...</span>
+                                        <i class="fas fa-chevron-down"></i>
+                                    </div>
+                                    <div class="dropdown-list" id="dropdownList">
+                                        <!-- Jugadores se cargarán aquí -->
+                                    </div>
+                                </div>
+                                
+                                <!-- Lista de jugadores seleccionados -->
+                                <div class="selected-players-list" id="selectedPlayersList">
+                                    <p class="empty-message">No hay jugadores seleccionados</p>
+                                </div>
+                            </div>
+
+                            <!-- Botón Entregar -->
+                            <button class="give-items-btn" id="giveItemsBtn">
+                                <i class="fas fa-gift"></i>
+                                <span>ENTREGAR OBJETOS</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab COMIDAS (placeholder) -->
+                <div class="tab-content" id="tab-comidas">
+                    <h2 class="section-title">COMIDAS</h2>
+                    <p>Contenido próximamente...</p>
+                </div>
+
+                <!-- Tab VEHICULOS -->
+                <div class="tab-content" id="tab-vehiculos">
+                    <div class="vehicles-container">
+                        <!-- Lado Izquierdo: Vehículos de Facciones -->
+                        <div class="vehicles-left-section">
+                            <div class="faction-vehicles-card">
+                                <h3 class="faction-title">VEHÍCULOS DE FACCIONES</h3>
+                                
+                                <!-- Tabs de Categorías -->
+                                <div class="faction-tabs" id="factionTabs">
+                                    <!-- Tabs se cargarán aquí -->
+                                </div>
+                                
+                                <!-- Contenido del tab seleccionado -->
+                                <div class="faction-vehicles-grid" id="factionVehiclesGrid">
+                                    <p class="empty-message">Selecciona una categoría</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Lado Derecho: Spawn y Dar Vehículos -->
+                        <div class="vehicles-right-section">
+                            <!-- Spawnear Vehículo -->
+                            <div class="spawn-vehicle-card">
+                                <h3 class="card-title">SPAWNEAR UN VEHÍCULO</h3>
+                                <input type="text" class="vehicle-input" id="spawnVehicleInput" placeholder="Nombre del vehículo (ej: adder)">
+                                <button class="spawn-vehicle-btn" id="spawnVehicleBtn">
+                                    <i class="fas fa-car"></i>
+                                    <span>SPAWNEAR VEHÍCULO</span>
+                                </button>
+                            </div>
+
+                            <!-- Dar Vehículo -->
+                            <div class="give-vehicle-card">
+                                <h3 class="card-title">DAR VEHÍCULO</h3>
+                                <input type="text" class="vehicle-input" id="giveVehicleName" placeholder="Nombre del vehículo (ej: adder)">
+                                <input type="number" class="vehicle-input" id="giveVehiclePlayerId" placeholder="ID del jugador">
+                                <button class="give-vehicle-btn" id="giveVehicleBtn">
+                                    <i class="fas fa-gift"></i>
+                                    <span>DAR VEHÍCULO</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab USUARIOS -->
+                <div class="tab-content" id="tab-usuarios">
+                    <div class="users-container">
+                        <!-- Lado Izquierdo: Panel de Jugador -->
+                        <div class="users-left-section">
+                            <div class="player-panel-card">
+                                <h3 class="panel-title">PANEL DE JUGADOR</h3>
+                                
+                                <div class="player-panel-content" id="playerPanelContent">
+                                    <p class="empty-message">Selecciona un jugador de la lista</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Lado Derecho: Lista de Jugadores -->
+                        <div class="users-right-section">
+                            <div class="players-list-card">
+                                <div class="players-list-header">
+                                    <h3 class="players-list-title">JUGADORES</h3>
+                                    <button class="refresh-players-btn" id="refreshPlayersBtn">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                </div>
+                                
+                                <div class="players-list" id="playersList">
+                                    <!-- Jugadores se cargarán aquí -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab OFFLINE (placeholder) -->
+                <div class="tab-content" id="tab-offline">
+                    <h2 class="section-title">USUARIOS OFFLINE</h2>
+                    <p>Contenido próximamente...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
