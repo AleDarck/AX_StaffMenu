@@ -348,10 +348,44 @@
                     </div>
                 </div>
 
-                <!-- Tab OFFLINE (placeholder) -->
+                <!-- Tab OFFLINE -->
                 <div class="tab-content" id="tab-offline">
-                    <h2 class="section-title">USUARIOS OFFLINE</h2>
-                    <p>Contenido próximamente...</p>
+                    <div class="users-container">
+                        <!-- Lado Izquierdo: Panel de Jugador -->
+                        <div class="users-left-section">
+                            <div class="player-panel-card">
+                                <h3 class="panel-title">PANEL DE JUGADOR</h3>
+                                
+                                <div class="player-panel-content" id="offlinePlayerPanelContent">
+                                    <p class="empty-message">Selecciona un jugador de la lista</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Lado Derecho: Lista de Jugadores -->
+                        <div class="users-right-section">
+                            <div class="players-list-card">
+                                <div class="players-list-header">
+                                    <h3 class="players-list-title">JUGADORES <span id="offlinePlayersCount">0</span></h3>
+                                    <div style="display: flex; gap: 10px;">
+                                        <input type="text" class="offline-search-input" id="offlineSearchInput" placeholder="Buscar por nombre o licencia...">
+                                        <button class="refresh-players-btn" id="refreshOfflinePlayersBtn">
+                                            <i class="fas fa-sync-alt"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div class="players-list" id="offlinePlayersList">
+                                    <!-- Jugadores se cargarán aquí -->
+                                </div>
+                                
+                                <!-- Paginación -->
+                                <div class="pagination-container" id="offlinePaginationContainer">
+                                    <!-- Páginas se generarán aquí -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

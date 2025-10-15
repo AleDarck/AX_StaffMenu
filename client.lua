@@ -261,6 +261,14 @@ RegisterNetEvent('ax_staff:updateDuty', function(duty)
     end
 end)
 
+-- Actualizar contador de staff activos
+RegisterNetEvent('ax_staff:updateStaffCount', function(count)
+    SendNUIMessage({
+        action = 'updateStaffCount',
+        count = count
+    })
+end)
+
 -- Recibir mensaje del chat
 RegisterNetEvent('ax_staff:receiveChatMessage', function(messageData)
     SendNUIMessage({

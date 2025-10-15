@@ -112,6 +112,25 @@ Config.Garages = {
     'VinewoodGarage'
 }
 
+-- Permisos para tab offline
+Config.Permissions.viewoffline = {'admin', 'mod'}
+Config.Permissions.deletecharacter = {'admin'}
+
+-- Tablas para borrar al eliminar personaje
+Config.CharacterDeletionTables = {
+    'users',
+    'owned_vehicles',
+    'player_houses',
+    'phone_crypto',
+    'addon_account_data',
+    'addon_inventory',
+    'datastore_data',
+    'user_licenses',
+    'user_contacts',
+    'user_accounts'
+    -- Agrega aquí más tablas según tu servidor
+}
+
 -- Colores del menú (puedes personalizarlos)
 Config.Colors = {
     primary = '#747474ff',

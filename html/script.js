@@ -13,6 +13,11 @@ window.addEventListener('message', function(event) {
     } else if (data.action === 'updateDuty') {
         isOnDuty = data.duty;
         updateDutyButton();
+    } else if (data.action === 'updateStaffCount') {
+        const staffCount = document.getElementById('staffActiveCount');
+        if (staffCount) {
+            staffCount.textContent = data.count;
+        }
     }
 });
 
@@ -1320,5 +1325,509 @@ function displayPlayerCrypto(crypto) {
         `;
         
         list.appendChild(item);
+    });
+}
+
+
+// ========== TAB OFFLINE ==========
+
+let allOfflinePlayers = [];
+let filteredOfflinePlayers = [];
+let currentOfflinePage = 1;
+let currentSelectedOfflinePlayer = null;
+let selectedOfflinePlayerData = null;
+const offlinePlayersPerPage = 20;
+
+// Cargar jugadores cuando se abre el tab
+document.querySelector('[data-tab="offline"]').addEventListener('click', function() {
+    loadOfflinePlayers();
+});
+
+// Cargar jugadores offline
+function loadOfflinePlayers() {
+    fetch(`https://${GetParentResourceName()}/getOfflinePlayers`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({})
+    }).then(response => {
+        if (!response.ok) {
+            throw new Error('Error en la respuesta del servidor');
+        }
+        return response.json();
+    })
+    .then(players => {
+        if (!players || players.length === 0) {
+            allOfflinePlayers = [];
+            filteredOfflinePlayers = [];
+            document.getElementById('offlinePlayersList').innerHTML = '<p class="empty-message">No hay jugadores registrados</p>';
+            document.getElementById('offlinePlayersCount').textContent = '0';
+            return;
+        }
+        
+        allOfflinePlayers = players;
+        filteredOfflinePlayers = players;
+        currentOfflinePage = 1;
+        displayOfflinePlayersPage();
+        updateOfflinePagination();
+        
+        // Actualizar contador
+        document.getElementById('offlinePlayersCount').textContent = players.length;
+    })
+    .catch(error => {
+        console.error('Error cargando jugadores offline:', error);
+        document.getElementById('offlinePlayersList').innerHTML = '<p class="empty-message">Error al cargar jugadores</p>';
+        document.getElementById('offlinePlayersCount').textContent = '0';
+    });
+}
+
+// Mostrar página de jugadores offline
+function displayOfflinePlayersPage() {
+    const list = document.getElementById('offlinePlayersList');
+    list.innerHTML = '';
+    
+    if (filteredOfflinePlayers.length === 0) {
+        list.innerHTML = '<p class="empty-message">No se encontraron jugadores</p>';
+        return;
+    }
+    
+    const startIndex = (currentOfflinePage - 1) * offlinePlayersPerPage;
+    const endIndex = startIndex + offlinePlayersPerPage;
+    const pageUsers = filteredOfflinePlayers.slice(startIndex, endIndex);
+    
+    pageUsers.forEach(player => {
+        const item = document.createElement('div');
+        item.className = 'player-list-item';
+        item.dataset.identifier = player.identifier;
+        
+        if (currentSelectedOfflinePlayer === player.identifier) {
+            item.classList.add('selected');
+        }
+        
+        item.innerHTML = `
+            <div class="player-list-name">${player.name}</div>
+        `;
+        
+        item.addEventListener('click', () => selectOfflinePlayer(player.identifier));
+        list.appendChild(item);
+    });
+}
+
+// Actualizar paginación offline
+function updateOfflinePagination() {
+    const totalPages = Math.ceil(filteredOfflinePlayers.length / offlinePlayersPerPage);
+    const paginationContainer = document.getElementById('offlinePaginationContainer');
+    paginationContainer.innerHTML = '';
+    
+    if (totalPages <= 1) return;
+    
+    // Botón anterior
+    const prevBtn = document.createElement('button');
+    prevBtn.className = 'pagination-btn';
+    prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+    prevBtn.disabled = currentOfflinePage === 1;
+    prevBtn.addEventListener('click', () => {
+        if (currentOfflinePage > 1) {
+            currentOfflinePage--;
+            displayOfflinePlayersPage();
+            updateOfflinePagination();
+        }
+    });
+    paginationContainer.appendChild(prevBtn);
+    
+    // Números de página
+    let startPage = Math.max(1, currentOfflinePage - 2);
+    let endPage = Math.min(totalPages, currentOfflinePage + 2);
+    
+    if (endPage - startPage < 4) {
+        if (startPage === 1) {
+            endPage = Math.min(totalPages, startPage + 4);
+        } else if (endPage === totalPages) {
+            startPage = Math.max(1, endPage - 4);
+        }
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+        const pageBtn = document.createElement('button');
+        pageBtn.className = 'pagination-btn';
+        pageBtn.textContent = i;
+        
+        if (i === currentOfflinePage) {
+            pageBtn.classList.add('active');
+        }
+        
+        pageBtn.addEventListener('click', () => {
+            currentOfflinePage = i;
+            displayOfflinePlayersPage();
+            updateOfflinePagination();
+        });
+        
+        paginationContainer.appendChild(pageBtn);
+    }
+    
+    // Botón siguiente
+    const nextBtn = document.createElement('button');
+    nextBtn.className = 'pagination-btn';
+    nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+    nextBtn.disabled = currentOfflinePage === totalPages;
+    nextBtn.addEventListener('click', () => {
+        if (currentOfflinePage < totalPages) {
+            currentOfflinePage++;
+            displayOfflinePlayersPage();
+            updateOfflinePagination();
+        }
+    });
+    paginationContainer.appendChild(nextBtn);
+}
+
+// Buscar jugadores offline
+document.getElementById('offlineSearchInput').addEventListener('input', function(e) {
+    const searchTerm = e.target.value.toLowerCase();
+    
+    filteredOfflinePlayers = allOfflinePlayers.filter(player => 
+        player.name.toLowerCase().includes(searchTerm) || 
+        player.identifier.toLowerCase().includes(searchTerm)
+    );
+    
+    currentOfflinePage = 1;
+    displayOfflinePlayersPage();
+    updateOfflinePagination();
+    
+    // Actualizar contador
+    document.getElementById('offlinePlayersCount').textContent = filteredOfflinePlayers.length;
+});
+
+// Seleccionar jugador offline
+function selectOfflinePlayer(identifier) {
+    currentSelectedOfflinePlayer = identifier;
+    
+    // Actualizar visual
+    document.querySelectorAll('#offlinePlayersList .player-list-item').forEach(item => {
+        item.classList.remove('selected');
+    });
+    document.querySelector(`#offlinePlayersList [data-identifier="${identifier}"]`)?.classList.add('selected');
+    
+    // Cargar información del jugador
+    loadOfflinePlayerInfo(identifier);
+}
+
+// Cargar información del jugador offline
+function loadOfflinePlayerInfo(identifier) {
+    fetch(`https://${GetParentResourceName()}/getOfflinePlayerInfo`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({identifier: identifier})
+    }).then(response => {
+        if (!response.ok) {
+            throw new Error('Error en la respuesta del servidor');
+        }
+        return response.json();
+    })
+    .then(info => {
+        if (info) {
+            selectedOfflinePlayerData = info;
+            displayOfflinePlayerPanel(info);
+            loadOfflinePlayerVehicles(info.identifier);
+            loadOfflinePlayerProperties(info.identifier);
+            loadOfflinePlayerCrypto(info.identifier);
+        } else {
+            document.getElementById('offlinePlayerPanelContent').innerHTML = '<p class="empty-message">Error al cargar información del jugador</p>';
+        }
+    })
+    .catch(error => {
+        console.error('Error cargando info del jugador:', error);
+        document.getElementById('offlinePlayerPanelContent').innerHTML = '<p class="empty-message">Error al cargar información</p>';
+    });
+}
+
+// Mostrar panel de jugador offline
+function displayOfflinePlayerPanel(info) {
+    const panel = document.getElementById('offlinePlayerPanelContent');
+    
+    panel.innerHTML = `
+        <!-- Info Grid -->
+        <div class="player-info-grid">
+            <div class="player-info-item">
+                <div class="player-info-label">NOMBRE IC</div>
+                <div class="player-info-value">${info.firstname} ${info.lastname}</div>
+            </div>
+            <div class="player-info-item">
+                <div class="player-info-label">BANK</div>
+                <div class="player-info-value money">$${formatNumber(info.bank)}</div>
+            </div>
+            <div class="player-info-item">
+                <div class="player-info-label">CASH</div>
+                <div class="player-info-value money">$${formatNumber(info.cash)}</div>
+            </div>
+            <div class="player-info-item">
+                <div class="player-info-label">VICOIN</div>
+                <div class="player-info-value money">${formatNumber(info.vicoin)}</div>
+            </div>
+            <div class="player-info-item" style="grid-column: span 2;">
+                <div class="player-info-label">LICENCIA</div>
+                <div class="player-info-value" style="font-size: 12px;">${info.identifier}</div>
+            </div>
+            <div class="player-info-item">
+                <div class="player-info-label">TRABAJO</div>
+                <div class="player-info-value">${info.job}</div>
+            </div>
+            <div class="player-info-item">
+                <div class="player-info-label">GRADO</div>
+                <div class="player-info-value">${info.job_grade}</div>
+            </div>
+        </div>
+        
+        <!-- Vehículos -->
+        <div class="player-vehicles-section">
+            <div class="player-vehicles-title">VEHÍCULOS</div>
+            <div class="player-vehicles-list" id="offlinePlayerVehiclesList">
+                <p class="empty-message">Cargando vehículos...</p>
+            </div>
+        </div>
+        
+        <!-- Propiedades -->
+        <div class="player-properties-section">
+            <div class="player-properties-title">PROPIEDADES</div>
+            <div class="player-properties-list" id="offlinePlayerPropertiesList">
+                <p class="empty-message">Cargando propiedades...</p>
+            </div>
+        </div>
+        
+        <!-- Crypto Wallet -->
+        <div class="player-crypto-section">
+            <div class="player-crypto-title">CRYPTO WALLET</div>
+            <div class="player-crypto-list" id="offlinePlayerCryptoList">
+                <p class="empty-message">Cargando cryptos...</p>
+            </div>
+        </div>
+        
+        <!-- Botón Eliminar Personaje -->
+        <button class="delete-character-btn" id="deleteCharacterBtn">
+            <i class="fas fa-user-times"></i>
+            <span>BORRAR PERSONAJE</span>
+        </button>
+    `;
+    
+    // Event listener para eliminar personaje
+    document.getElementById('deleteCharacterBtn').addEventListener('click', function() {
+        showDeleteConfirmation(info.identifier, info.firstname + ' ' + info.lastname);
+    });
+}
+
+// Funciones para cargar vehículos, propiedades y crypto (reutilizadas)
+function loadOfflinePlayerVehicles(identifier) {
+    fetch(`https://${GetParentResourceName()}/getPlayerVehicles`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({identifier: identifier})
+    }).then(response => response.json())
+    .then(vehicles => {
+        displayOfflinePlayerVehicles(vehicles, identifier);
+    });
+}
+
+function displayOfflinePlayerVehicles(vehicles, identifier) {
+    const list = document.getElementById('offlinePlayerVehiclesList');
+    
+    if (!vehicles || vehicles.length === 0) {
+        list.innerHTML = '<p class="empty-message">No tiene vehículos</p>';
+        return;
+    }
+    
+    list.innerHTML = '';
+    
+    vehicles.forEach(vehicle => {
+        const item = document.createElement('div');
+        item.className = 'vehicle-item';
+        
+        const parking = vehicle.parking || 'Sin garaje';
+        const stored = vehicle.stored === 1 ? 'Guardado' : 'Fuera';
+        
+        item.innerHTML = `
+            <div class="vehicle-item-info">
+                <div class="vehicle-item-plate">${vehicle.plate}</div>
+                <div class="vehicle-item-garage">${parking} - ${stored}</div>
+            </div>
+            <div class="vehicle-item-actions">
+                <button class="vehicle-action-btn" data-plate="${vehicle.plate}">
+                    <i class="fas fa-warehouse"></i> Mover
+                </button>
+                <button class="vehicle-action-btn delete" data-plate="${vehicle.plate}" data-identifier="${identifier}">
+                    <i class="fas fa-trash"></i> Eliminar
+                </button>
+            </div>
+        `;
+        
+        list.appendChild(item);
+    });
+    
+    // Event listeners
+    document.querySelectorAll('#offlinePlayerVehiclesList .vehicle-action-btn:not(.delete)').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const plate = this.dataset.plate;
+            showGarageModal(plate);
+        });
+    });
+    
+    document.querySelectorAll('#offlinePlayerVehiclesList .vehicle-action-btn.delete').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const plate = this.dataset.plate;
+            const identifier = this.dataset.identifier;
+            
+            if (confirm(`¿Seguro que quieres eliminar el vehículo con placa ${plate}?`)) {
+                deleteVehicle(plate, identifier);
+            }
+        });
+    });
+}
+
+function loadOfflinePlayerProperties(identifier) {
+    fetch(`https://${GetParentResourceName()}/getPlayerProperties`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({identifier: identifier})
+    }).then(response => response.json())
+    .then(properties => {
+        displayOfflinePlayerProperties(properties, identifier);
+    });
+}
+
+function displayOfflinePlayerProperties(properties, identifier) {
+    const list = document.getElementById('offlinePlayerPropertiesList');
+    
+    if (!properties || properties.length === 0) {
+        list.innerHTML = '<p class="empty-message">No tiene propiedades</p>';
+        return;
+    }
+    
+    list.innerHTML = '';
+    
+    properties.forEach(property => {
+        const item = document.createElement('div');
+        item.className = 'property-item';
+        
+        const status = property.rented === 1 ? 'Rentado' : 'Comprado';
+        const price = property.rentPrice || 'N/A';
+        
+        item.innerHTML = `
+            <div class="property-item-info">
+                <div class="property-item-name">${property.house}</div>
+                <div class="property-item-status">${status} - $${formatNumber(price)}</div>
+            </div>
+            <div class="property-item-actions">
+                <button class="property-action-btn" data-house="${property.house}" data-identifier="${identifier}">
+                    <i class="fas fa-trash"></i> Eliminar
+                </button>
+            </div>
+        `;
+        
+        list.appendChild(item);
+    });
+    
+    document.querySelectorAll('#offlinePlayerPropertiesList .property-action-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const house = this.dataset.house;
+            const identifier = this.dataset.identifier;
+            
+            if (confirm(`¿Seguro que quieres eliminar la propiedad ${house}?`)) {
+                removeProperty(house, identifier);
+            }
+        });
+    });
+}
+
+function loadOfflinePlayerCrypto(identifier) {
+    fetch(`https://${GetParentResourceName()}/getPlayerCrypto`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({identifier: identifier})
+    }).then(response => response.json())
+    .then(crypto => {
+        displayOfflinePlayerCrypto(crypto);
+    });
+}
+
+function displayOfflinePlayerCrypto(crypto) {
+    const list = document.getElementById('offlinePlayerCryptoList');
+    
+    if (!crypto || crypto.length === 0) {
+        list.innerHTML = '<p class="empty-message">No tiene cryptomonedas</p>';
+        return;
+    }
+    
+    list.innerHTML = '';
+    
+    crypto.forEach(coin => {
+        const item = document.createElement('div');
+        item.className = 'crypto-item';
+        
+        const coinName = coin.coin.charAt(0).toUpperCase() + coin.coin.slice(1);
+        
+        item.innerHTML = `
+            <div class="crypto-item-info">
+                <div class="crypto-item-name">${coinName}</div>
+                <div class="crypto-item-amount">${coin.amount.toFixed(8)} - Invertido: $${formatNumber(coin.invested)}</div>
+            </div>
+        `;
+        
+        list.appendChild(item);
+    });
+}
+
+// Botón refrescar jugadores offline
+document.getElementById('refreshOfflinePlayersBtn').addEventListener('click', function() {
+    loadOfflinePlayers();
+});
+
+// Modal de confirmación para eliminar personaje
+function showDeleteConfirmation(identifier, name) {
+    let modal = document.getElementById('deleteConfirmModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'deleteConfirmModal';
+        modal.className = 'confirm-modal';
+        document.body.appendChild(modal);
+    }
+    
+    modal.innerHTML = `
+        <div class="confirm-modal-content">
+            <i class="fas fa-exclamation-triangle confirm-modal-icon"></i>
+            <h3 class="confirm-modal-title">¿BORRAR PERSONAJE?</h3>
+            <p class="confirm-modal-text">
+                Estás a punto de eliminar permanentemente a <strong>${name}</strong>.<br>
+                Esta acción NO se puede deshacer y eliminará TODOS los datos del jugador.
+            </p>
+            <div class="confirm-modal-actions">
+                <button class="confirm-modal-btn cancel" id="cancelDeleteChar">CANCELAR</button>
+                <button class="confirm-modal-btn confirm" id="confirmDeleteChar">ELIMINAR PERMANENTEMENTE</button>
+            </div>
+        </div>
+    `;
+    
+    modal.classList.add('active');
+    
+    document.getElementById('cancelDeleteChar').addEventListener('click', () => {
+        modal.classList.remove('active');
+    });
+    
+    document.getElementById('confirmDeleteChar').addEventListener('click', () => {
+        deleteCharacter(identifier);
+        modal.classList.remove('active');
+    });
+}
+
+// Eliminar personaje
+function deleteCharacter(identifier) {
+    fetch(`https://${GetParentResourceName()}/deleteCharacter`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({identifier: identifier})
+    }).then(() => {
+        // Recargar lista de jugadores
+        loadOfflinePlayers();
+        
+        // Limpiar panel
+        document.getElementById('offlinePlayerPanelContent').innerHTML = '<p class="empty-message">Selecciona un jugador de la lista</p>';
+        currentSelectedOfflinePlayer = null;
+        selectedOfflinePlayerData = null;
     });
 }

@@ -63,7 +63,9 @@ end)
 
 -- Obtener mensajes del chat al abrir el menú
 ESX.RegisterServerCallback('ax_staff:getChatMessages', function(source, cb)
-    cb(staffChatMessages or {})
+    MySQL.query('SELECT name, rank, message, time FROM staff_chat_messages ORDER BY timestamp ASC LIMIT 50', {}, function(result)
+        cb(result or {})
+    end)
 end)
 
 -- Verificar permiso para acción
@@ -98,6 +100,26 @@ RegisterNetEvent('ax_staff:toggleDuty', function()
     print('[AX_StaffMenu SERVER] Nuevo estado de duty: ' .. tostring(staffOnDuty[identifier]))
     
     TriggerClientEvent('ax_staff:updateDuty', source, staffOnDuty[identifier])
+    
+    -- Actualizar contador de staff activos para todos los staff
+    local staffCount = 0
+    for id, onDuty in pairs(staffOnDuty) do
+        if onDuty then
+            staffCount = staffCount + 1
+        end
+    end
+    
+    -- Enviar actualización a todos los staff conectados
+    local players = ESX.GetExtendedPlayers()
+    for _, player in ipairs(players) do
+        local group = player.getGroup()
+        for _, allowedGroup in ipairs(Config.AllowedGroups) do
+            if group == allowedGroup then
+                TriggerClientEvent('ax_staff:updateStaffCount', player.source, staffCount)
+                break
+            end
+        end
+    end
 end)
 
 -- Remover duty al desconectarse
@@ -114,8 +136,6 @@ AddEventHandler('playerDropped', function(reason)
 end)
 
 -- ========== SISTEMA DE CHAT ==========
-
-local staffChatMessages = {}
 
 -- Enviar mensaje al chat de staff
 RegisterNetEvent('ax_staff:sendChatMessage', function(message)
@@ -143,7 +163,13 @@ RegisterNetEvent('ax_staff:sendChatMessage', function(message)
         time = os.date('%H:%M')
     }
     
-    table.insert(staffChatMessages, chatMessage)
+    -- Guardar en base de datos
+    MySQL.insert('INSERT INTO staff_chat_messages (name, rank, message, time) VALUES (?, ?, ?, ?)', {
+        chatMessage.name,
+        chatMessage.rank,
+        chatMessage.message,
+        chatMessage.time
+    })
     
     -- Enviar a todos los staff conectados
     local players = ESX.GetExtendedPlayers()
@@ -169,7 +195,8 @@ RegisterNetEvent('ax_staff:clearChat', function()
         return
     end
     
-    staffChatMessages = {}
+    -- Limpiar base de datos
+    MySQL.query('DELETE FROM staff_chat_messages', {})
     
     -- Notificar a todos los staff
     local players = ESX.GetExtendedPlayers()
@@ -577,19 +604,17 @@ RegisterNetEvent('ax_staff:deleteVehicle', function(plate, targetIdentifier)
     MySQL.query('DELETE FROM owned_vehicles WHERE plate = ? AND owner = ?', {
         plate,
         targetIdentifier
-    }, function(affectedRows)
-        if affectedRows > 0 then
-            TriggerClientEvent('ox_lib:notify', source, {
-                title = 'Éxito',
-                description = 'Vehículo eliminado',
-                type = 'success'
-            })
-            
-            -- Log en Discord
-            SendToDiscord('Vehículo Eliminado',
-                '**Staff:** ' .. xPlayer.getName() .. '\n**Placa:** ' .. plate,
-                15158332)
-        end
+    }, function()
+        TriggerClientEvent('ox_lib:notify', source, {
+            title = 'Éxito',
+            description = 'Vehículo eliminado',
+            type = 'success'
+        })
+        
+        -- Log en Discord
+        SendToDiscord('Vehículo Eliminado',
+            '**Staff:** ' .. xPlayer.getName() .. '\n**Placa:** ' .. plate,
+            15158332)
     end)
 end)
 
@@ -773,4 +798,147 @@ RegisterNetEvent('ax_staff:removeProperty', function(house, targetIdentifier)
                 15158332)
         end
     end)
+end)
+
+-- ========== TAB OFFLINE ==========
+
+-- Obtener todos los jugadores registrados
+ESX.RegisterServerCallback('ax_staff:getOfflinePlayers', function(source, cb)
+    local xPlayer = ESX.GetPlayerFromId(source)
+    
+    if not xPlayer then
+        print('[OFFLINE ERROR] xPlayer es nil')
+        cb({})
+        return
+    end
+    
+    print('[OFFLINE] Callback recibido de:', xPlayer.getName())
+    
+    -- Verificar permisos
+    local playerGroup = xPlayer.getGroup()
+    local hasPermission = false
+    
+    for _, group in ipairs(Config.AllowedGroups) do
+        if playerGroup == group then
+            hasPermission = true
+            break
+        end
+    end
+    
+    if not hasPermission then
+        print('[OFFLINE] Sin permisos:', playerGroup)
+        cb({})
+        return
+    end
+    
+    print('[OFFLINE] Ejecutando query...')
+    
+    MySQL.query('SELECT identifier, firstname, lastname FROM users ORDER BY lastname ASC', {}, function(result)
+        if result then
+            print('[OFFLINE] Query exitosa, jugadores encontrados:', #result)
+            
+            local players = {}
+            for _, row in ipairs(result) do
+                table.insert(players, {
+                    identifier = row.identifier,
+                    name = row.firstname .. ' ' .. row.lastname
+                })
+            end
+            
+            print('[OFFLINE] Enviando', #players, 'jugadores al cliente')
+            cb(players)
+        else
+            print('[OFFLINE] Query sin resultados')
+            cb({})
+        end
+    end)
+end)
+
+-- Obtener información detallada de un jugador offline
+ESX.RegisterServerCallback('ax_staff:getOfflinePlayerInfo', function(source, cb, identifier)
+    local xPlayer = ESX.GetPlayerFromId(source)
+    
+    if not xPlayer then
+        cb(nil)
+        return
+    end
+    
+    -- Verificar permisos
+    local playerGroup = xPlayer.getGroup()
+    local hasPermission = false
+    
+    for _, group in ipairs(Config.AllowedGroups) do
+        if playerGroup == group then
+            hasPermission = true
+            break
+        end
+    end
+    
+    if not hasPermission then
+        cb(nil)
+        return
+    end
+    
+    MySQL.query('SELECT firstname, lastname, accounts, job, job_grade, vicoin FROM users WHERE identifier = ?', {
+        identifier
+    }, function(result)
+        if result[1] then
+            local data = result[1]
+            local accounts = json.decode(data.accounts)
+            
+            local playerInfo = {
+                identifier = identifier,
+                firstname = data.firstname,
+                lastname = data.lastname,
+                bank = accounts.bank or 0,
+                cash = accounts.money or 0,
+                vicoin = data.vicoin or 0,
+                job = data.job,
+                job_grade = data.job_grade
+            }
+            
+            cb(playerInfo)
+        else
+            cb(nil)
+        end
+    end)
+end)
+
+-- Eliminar personaje completo
+RegisterNetEvent('ax_staff:deleteCharacter', function(identifier)
+    local source = source
+    local xPlayer = ESX.GetPlayerFromId(source)
+    
+    if not xPlayer then return end
+    
+    -- Verificar permisos
+    local playerGroup = xPlayer.getGroup()
+    if playerGroup ~= 'admin' then
+        return
+    end
+    
+    -- Eliminar de todas las tablas configuradas
+    for _, tableName in ipairs(Config.CharacterDeletionTables) do
+        local column = 'owner'
+        
+        if tableName == 'users' or tableName == 'user_licenses' or tableName == 'user_contacts' or tableName == 'user_accounts' then
+            column = 'identifier'
+        elseif tableName == 'phone_crypto' then
+            column = 'id'
+        end
+        
+        MySQL.query('DELETE FROM ' .. tableName .. ' WHERE ' .. column .. ' = ?', {
+            identifier
+        })
+    end
+    
+    TriggerClientEvent('ox_lib:notify', source, {
+        title = 'Éxito',
+        description = 'Personaje eliminado permanentemente',
+        type = 'success'
+    })
+    
+    SendToDiscord('Personaje Eliminado',
+        '**Staff:** ' .. xPlayer.getName() .. '\n**Licencia:** ' .. identifier,
+        15158332)
 end)
