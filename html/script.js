@@ -556,7 +556,7 @@ function displayPlayersDropdown(players) {
         item.dataset.playerId = player.id;
         item.dataset.playerName = player.name;
         
-        item.addEventListener('click', () => selectPlayer(player));
+        item.addEventListener('click', () => selectPlayerForItems(player)); // CAMBIAR AQUÍ
         dropdownList.appendChild(item);
     });
 }
@@ -576,8 +576,8 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// Seleccionar jugador
-function selectPlayer(player) {
+// Seleccionar jugador (para el dropdown de items)
+function selectPlayerForItems(player) {
     if (!selectedPlayers.find(p => p.id === player.id)) {
         selectedPlayers.push(player);
         updateSelectedPlayersList();
@@ -870,20 +870,20 @@ function displayPlayersList(players) {
             <div class="player-list-name">${player.name}</div>
         `;
         
-        item.addEventListener('click', () => selectPlayer(player.id));
+        item.addEventListener('click', () => selectPlayerInUsersTab(player.id)); // CAMBIAR AQUÍ
         list.appendChild(item);
     });
 }
 
-// Seleccionar jugador
-function selectPlayer(playerId) {
+// Seleccionar jugador (para el tab usuarios)
+function selectPlayerInUsersTab(playerId) {
     currentSelectedPlayer = playerId;
     
     // Actualizar visual
-    document.querySelectorAll('.player-list-item').forEach(item => {
+    document.querySelectorAll('#playersList .player-list-item').forEach(item => {
         item.classList.remove('selected');
     });
-    document.querySelector(`[data-player-id="${playerId}"]`)?.classList.add('selected');
+    document.querySelector(`#playersList [data-player-id="${playerId}"]`)?.classList.add('selected');
     
     // Cargar información del jugador
     loadPlayerInfo(playerId);
@@ -1829,5 +1829,342 @@ function deleteCharacter(identifier) {
         document.getElementById('offlinePlayerPanelContent').innerHTML = '<p class="empty-message">Selecciona un jugador de la lista</p>';
         currentSelectedOfflinePlayer = null;
         selectedOfflinePlayerData = null;
+    });
+}
+
+// ========== TAB COMIDAS ==========
+
+let allFoodItems = [];
+let filteredFoodItems = [];
+let currentFoodPage = 1;
+let availableItems = [];
+let editingFoodId = null;
+const foodItemsPerPage = 8;
+
+// Cargar comidas cuando se abre el tab
+document.querySelector('[data-tab="comidas"]').addEventListener('click', function() {
+    loadFoodItems();
+    loadAvailableItems();
+});
+
+// Cargar items disponibles de ox_inventory
+function loadAvailableItems() {
+    fetch(`https://${GetParentResourceName()}/getInventoryItems`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({})
+    }).then(response => response.json())
+    .then(items => {
+        availableItems = items;
+    });
+}
+
+// Cargar comidas configuradas
+function loadFoodItems() {
+    fetch(`https://${GetParentResourceName()}/getFoodItems`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({})
+    }).then(response => response.json())
+    .then(items => {
+        allFoodItems = items;
+        filteredFoodItems = items;
+        currentFoodPage = 1;
+        displayFoodPage();
+        updateFoodPagination();
+    });
+}
+
+// Mostrar página de comidas
+function displayFoodPage() {
+    const tbody = document.getElementById('foodTableBody');
+    tbody.innerHTML = '';
+    
+    if (filteredFoodItems.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 40px; color: rgba(255,255,255,0.5);">No hay comidas configuradas</td></tr>';
+        return;
+    }
+    
+    const startIndex = (currentFoodPage - 1) * foodItemsPerPage;
+    const endIndex = startIndex + foodItemsPerPage;
+    const pageItems = filteredFoodItems.slice(startIndex, endIndex);
+    
+    pageItems.forEach(item => {
+        const row = document.createElement('tr');
+        
+        const categoryLabel = item.category === 'food' ? 'COMIDA' : (item.category === 'drink' ? 'BEBIDA' : 'ALCOHOL');
+        
+        row.innerHTML = `
+            <td><img src="nui://ox_inventory/web/images/${item.item_name}.png" class="food-item-icon" onerror="this.src='https://via.placeholder.com/50x50?text=NO'"></td>
+            <td><strong>${item.label}</strong><br><small style="color: rgba(255,255,255,0.5);">${item.item_name}</small></td>
+            <td><span class="food-category-badge ${item.category}">${categoryLabel}</span></td>
+            <td><span class="food-stat-value">${item.hunger > 0 ? '+' : ''}${item.hunger}</span></td>
+            <td><span class="food-stat-value">${item.thirst > 0 ? '+' : ''}${item.thirst}</span></td>
+            <td><span class="food-stat-value">${item.stress > 0 ? '+' : ''}${item.stress}</span></td>
+            <td><span class="food-stat-value">${item.alcohol > 0 ? '+' : ''}${item.alcohol}</span></td>
+            <td>
+                <div class="food-actions">
+                    <button class="food-action-btn edit" data-id="${item.id}">
+                        <i class="fas fa-edit"></i> Editar
+                    </button>
+                    <button class="food-action-btn delete" data-id="${item.id}">
+                        <i class="fas fa-trash"></i> Borrar
+                    </button>
+                </div>
+            </td>
+        `;
+        
+        tbody.appendChild(row);
+    });
+    
+    // Event listeners para botones
+    document.querySelectorAll('.food-action-btn.edit').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const id = parseInt(this.dataset.id);
+            editFoodItem(id);
+        });
+    });
+    
+    document.querySelectorAll('.food-action-btn.delete').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const id = parseInt(this.dataset.id);
+            const item = allFoodItems.find(i => i.id === id);
+            if (confirm(`¿Seguro que quieres eliminar "${item.label}"?`)) {
+                deleteFoodItem(id);
+            }
+        });
+    });
+}
+
+// Actualizar paginación
+function updateFoodPagination() {
+    const totalPages = Math.ceil(filteredFoodItems.length / foodItemsPerPage);
+    const container = document.getElementById('foodPaginationContainer');
+    container.innerHTML = '';
+    
+    if (totalPages <= 1) return;
+    
+    // Botón anterior
+    const prevBtn = document.createElement('button');
+    prevBtn.className = 'pagination-btn';
+    prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+    prevBtn.disabled = currentFoodPage === 1;
+    prevBtn.addEventListener('click', () => {
+        if (currentFoodPage > 1) {
+            currentFoodPage--;
+            displayFoodPage();
+            updateFoodPagination();
+        }
+    });
+    container.appendChild(prevBtn);
+    
+    // Números de página
+    let startPage = Math.max(1, currentFoodPage - 2);
+    let endPage = Math.min(totalPages, currentFoodPage + 2);
+    
+    if (endPage - startPage < 4) {
+        if (startPage === 1) {
+            endPage = Math.min(totalPages, startPage + 4);
+        } else if (endPage === totalPages) {
+            startPage = Math.max(1, endPage - 4);
+        }
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+        const pageBtn = document.createElement('button');
+        pageBtn.className = 'pagination-btn';
+        pageBtn.textContent = i;
+        
+        if (i === currentFoodPage) {
+            pageBtn.classList.add('active');
+        }
+        
+        pageBtn.addEventListener('click', () => {
+            currentFoodPage = i;
+            displayFoodPage();
+            updateFoodPagination();
+        });
+        
+        container.appendChild(pageBtn);
+    }
+    
+    // Botón siguiente
+    const nextBtn = document.createElement('button');
+    nextBtn.className = 'pagination-btn';
+    nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+    nextBtn.disabled = currentFoodPage === totalPages;
+    nextBtn.addEventListener('click', () => {
+        if (currentFoodPage < totalPages) {
+            currentFoodPage++;
+            displayFoodPage();
+            updateFoodPagination();
+        }
+    });
+    container.appendChild(nextBtn);
+}
+
+// Búsqueda de comidas
+document.getElementById('foodSearchInput').addEventListener('input', function(e) {
+    const searchTerm = e.target.value.toLowerCase();
+    
+    filteredFoodItems = allFoodItems.filter(item => 
+        item.label.toLowerCase().includes(searchTerm) || 
+        item.item_name.toLowerCase().includes(searchTerm)
+    );
+    
+    currentFoodPage = 1;
+    displayFoodPage();
+    updateFoodPagination();
+});
+
+// Abrir modal para agregar
+document.getElementById('addFoodBtn').addEventListener('click', function() {
+    editingFoodId = null;
+    document.getElementById('foodModalTitle').textContent = 'AGREGAR COMIDA';
+    document.getElementById('foodItemName').value = '';
+    document.getElementById('foodItemName').disabled = false;
+    document.getElementById('foodLabel').value = '';
+    document.getElementById('foodCategory').value = 'food';
+    document.getElementById('foodHunger').value = 0;
+    document.getElementById('foodThirst').value = 0;
+    document.getElementById('foodStress').value = 0;
+    document.getElementById('foodAlcohol').value = 0;
+    document.getElementById('foodModal').classList.add('active');
+});
+
+// Cerrar modal
+document.getElementById('closeFoodModal').addEventListener('click', closeFoodModal);
+document.getElementById('cancelFoodBtn').addEventListener('click', closeFoodModal);
+
+function closeFoodModal() {
+    document.getElementById('foodModal').classList.remove('active');
+    document.getElementById('itemSuggestions').classList.remove('active');
+}
+
+// Autocomplete para items con iconos
+document.getElementById('foodItemName').addEventListener('input', function(e) {
+    const searchTerm = e.target.value.toLowerCase();
+    const suggestions = document.getElementById('itemSuggestions');
+    
+    if (searchTerm.length < 2) {
+        suggestions.classList.remove('active');
+        return;
+    }
+    
+    const matches = availableItems.filter(item => 
+        item.name.toLowerCase().includes(searchTerm) || 
+        item.label.toLowerCase().includes(searchTerm)
+    ).slice(0, 10);
+    
+    if (matches.length === 0) {
+        suggestions.classList.remove('active');
+        return;
+    }
+    
+    suggestions.innerHTML = '';
+    matches.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'autocomplete-item';
+        div.innerHTML = `
+            <img src="nui://ox_inventory/web/images/${item.name}.png" class="autocomplete-item-icon" onerror="this.src='https://via.placeholder.com/40x40?text=NO'">
+            <div class="autocomplete-item-text">
+                <span class="autocomplete-item-name">${item.name}</span>
+                <span class="autocomplete-item-label">${item.label}</span>
+            </div>
+        `;
+        
+        div.addEventListener('click', () => {
+            document.getElementById('foodItemName').value = item.name;
+            document.getElementById('foodLabel').value = item.label;
+            suggestions.classList.remove('active');
+        });
+        
+        suggestions.appendChild(div);
+    });
+    
+    suggestions.classList.add('active');
+});
+
+// Cerrar sugerencias al hacer clic fuera
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.autocomplete-wrapper')) {
+        document.getElementById('itemSuggestions').classList.remove('active');
+    }
+});
+
+// Guardar comida
+document.getElementById('saveFoodBtn').addEventListener('click', function() {
+    const itemName = document.getElementById('foodItemName').value.trim();
+    const label = document.getElementById('foodLabel').value.trim();
+    const category = document.getElementById('foodCategory').value;
+    const hunger = parseInt(document.getElementById('foodHunger').value) || 0;
+    const thirst = parseInt(document.getElementById('foodThirst').value) || 0;
+    const stress = parseInt(document.getElementById('foodStress').value) || 0;
+    const alcohol = parseInt(document.getElementById('foodAlcohol').value) || 0;
+    
+    // Validaciones
+    if (!itemName || !label) {
+        alert('Debes completar el nombre del item y el nombre de la comida');
+        return;
+    }
+    
+    if (hunger < -100 || hunger > 100 || thirst < -100 || thirst > 100 || 
+        stress < -100 || stress > 100 || alcohol < -100 || alcohol > 100) {
+        alert('Los valores deben estar entre -100 y 100');
+        return;
+    }
+    
+    const data = {
+        id: editingFoodId,
+        item_name: itemName,
+        label: label,
+        category: category,
+        hunger: hunger,
+        thirst: thirst,
+        stress: stress,
+        alcohol: alcohol
+    };
+    
+    const endpoint = editingFoodId ? 'updateFoodItem' : 'addFoodItem';
+    
+    fetch(`https://${GetParentResourceName()}/${endpoint}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    }).then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            closeFoodModal();
+            loadFoodItems();
+        }
+    });
+});
+
+// Editar comida
+function editFoodItem(id) {
+    const item = allFoodItems.find(i => i.id === id);
+    if (!item) return;
+    
+    editingFoodId = id;
+    document.getElementById('foodModalTitle').textContent = 'EDITAR COMIDA';
+    document.getElementById('foodItemName').value = item.item_name;
+    document.getElementById('foodItemName').disabled = true;
+    document.getElementById('foodLabel').value = item.label;
+    document.getElementById('foodCategory').value = item.category;
+    document.getElementById('foodHunger').value = item.hunger;
+    document.getElementById('foodThirst').value = item.thirst;
+    document.getElementById('foodStress').value = item.stress;
+    document.getElementById('foodAlcohol').value = item.alcohol;
+    document.getElementById('foodModal').classList.add('active');
+}
+
+// Eliminar comida
+function deleteFoodItem(id) {
+    fetch(`https://${GetParentResourceName()}/deleteFoodItem`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({id: id})
+    }).then(() => {
+        loadFoodItems();
     });
 }

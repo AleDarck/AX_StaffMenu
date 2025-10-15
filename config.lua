@@ -37,6 +37,42 @@ Config.Permissions = {
     giveitems = {'admin'},
 }
 
+-- ========== TAB COMIDAS ==========
+
+-- Permisos para gestión de comidas
+Config.Permissions.managefood = {'admin'}
+
+-- Animaciones para comidas
+Config.FoodAnimations = {
+    food = {
+        dict = "mp_player_inteat@burger",
+        anim = "mp_player_int_eat_burger",
+        prop = "prop_cs_burger_01",
+        bone = 60309,
+        pos = vector3(0.0, 0.0, 0.0),
+        rot = vector3(0.0, 0.0, 0.0),
+        duration = 5000
+    },
+    drink = {
+        dict = "mp_player_intdrink",
+        anim = "loop_bottle",
+        prop = "prop_ld_flow_bottle",
+        bone = 60309,
+        pos = vector3(0.03, 0.03, 0.02),
+        rot = vector3(0.0, 0.0, -1.5),
+        duration = 3000
+    },
+    alcohol = {
+        dict = "amb@world_human_drinking@beer@male@idle_a",
+        anim = "idle_a",
+        prop = "prop_amb_beer_bottle",
+        bone = 60309,
+        pos = vector3(0.0, 0.0, 0.0),
+        rot = vector3(0.0, 0.0, 0.0),
+        duration = 4000
+    }
+}
+
 -- Permisos para vehículos
 Config.Permissions.factionvehicles = {'admin', 'mod'}
 Config.Permissions.spawnvehicle = {'admin', 'mod'}

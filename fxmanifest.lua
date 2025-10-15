@@ -32,5 +32,6 @@ files {
 dependencies {
     'es_extended',
     'oxmysql',
-    'ox_inventory'
+    'ox_inventory',
+    'esx_status'
 }

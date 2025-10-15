@@ -264,10 +264,114 @@
                     </div>
                 </div>
 
-                <!-- Tab COMIDAS (placeholder) -->
+                <!-- Tab COMIDAS -->
                 <div class="tab-content" id="tab-comidas">
-                    <h2 class="section-title">COMIDAS</h2>
-                    <p>Contenido próximamente...</p>
+                    <div class="food-container">
+                        <!-- Header con búsqueda y botón agregar -->
+                        <div class="food-header">
+                            <div class="food-search-box">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="foodSearchInput" placeholder="Buscar comida...">
+                            </div>
+                            <button class="add-food-btn" id="addFoodBtn">
+                                <i class="fas fa-plus"></i>
+                                <span>AGREGAR COMIDA</span>
+                            </button>
+                        </div>
+
+                        <!-- Tabla de comidas -->
+                        <div class="food-table-container">
+                            <table class="food-table">
+                                <thead>
+                                    <tr>
+                                        <th>ICONO</th>
+                                        <th>NOMBRE</th>
+                                        <th>CATEGORÍA</th>
+                                        <th>HAMBRE</th>
+                                        <th>SED</th>
+                                        <th>ESTRÉS</th>
+                                        <th>ALCOHOL</th>
+                                        <th>ACCIONES</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="foodTableBody">
+                                    <!-- Filas se cargarán aquí -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Paginación -->
+                        <div class="pagination-container" id="foodPaginationContainer">
+                            <!-- Páginas se generarán aquí -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal Agregar/Editar Comida -->
+                <div class="food-modal" id="foodModal">
+                    <div class="food-modal-content">
+                        <div class="food-modal-header">
+                            <h3 class="food-modal-title" id="foodModalTitle">AGREGAR COMIDA</h3>
+                            <button class="food-modal-close" id="closeFoodModal">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+
+                        <div class="food-modal-body">
+                            <!-- Item Name con sugerencias -->
+                            <div class="food-input-group">
+                                <label>NOMBRE DEL ITEM</label>
+                                <div class="autocomplete-wrapper">
+                                    <input type="text" id="foodItemName" class="food-input" placeholder="Ejemplo: bread" autocomplete="off">
+                                    <div class="autocomplete-suggestions" id="itemSuggestions"></div>
+                                </div>
+                            </div>
+
+                            <!-- Label -->
+                            <div class="food-input-group">
+                                <label>NOMBRE DE LA COMIDA</label>
+                                <input type="text" id="foodLabel" class="food-input" placeholder="Ejemplo: Pan">
+                            </div>
+
+                            <!-- Categoría -->
+                            <div class="food-input-group">
+                                <label>CATEGORÍA</label>
+                                <select id="foodCategory" class="food-select">
+                                    <option value="food">COMIDA</option>
+                                    <option value="drink">BEBIDA</option>
+                                    <option value="alcohol">ALCOHOL</option>
+                                </select>
+                            </div>
+
+                            <!-- Stats Grid -->
+                            <div class="food-stats-grid">
+                                <div class="food-input-group">
+                                    <label>HAMBRE (-100 a 100)</label>
+                                    <input type="number" id="foodHunger" class="food-input" min="-100" max="100" value="0">
+                                </div>
+
+                                <div class="food-input-group">
+                                    <label>SED (-100 a 100)</label>
+                                    <input type="number" id="foodThirst" class="food-input" min="-100" max="100" value="0">
+                                </div>
+
+                                <div class="food-input-group">
+                                    <label>ESTRÉS (-100 a 100)</label>
+                                    <input type="number" id="foodStress" class="food-input" min="-100" max="100" value="0">
+                                </div>
+
+                                <div class="food-input-group">
+                                    <label>ALCOHOL (-100 a 100)</label>
+                                    <input type="number" id="foodAlcohol" class="food-input" min="-100" max="100" value="0">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="food-modal-footer">
+                            <button class="food-modal-btn cancel" id="cancelFoodBtn">CANCELAR</button>
+                            <button class="food-modal-btn confirm" id="saveFoodBtn">GUARDAR</button>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Tab VEHICULOS -->

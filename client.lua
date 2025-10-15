@@ -700,8 +700,183 @@ RegisterNUICallback('getPlayerCrypto', function(data, cb)
     end, data.identifier)
 end)
 
+-- Obtener jugadores offline
+RegisterNUICallback('getOfflinePlayers', function(data, cb)
+    ESX.TriggerServerCallback('ax_staff:getOfflinePlayers', function(players)
+        cb(players)
+    end)
+end)
+
+-- Obtener info de jugador offline
+RegisterNUICallback('getOfflinePlayerInfo', function(data, cb)
+    ESX.TriggerServerCallback('ax_staff:getOfflinePlayerInfo', function(info)
+        cb(info)
+    end, data.identifier)
+end)
+
+-- Eliminar personaje
+RegisterNUICallback('deleteCharacter', function(data, cb)
+    TriggerServerEvent('ax_staff:deleteCharacter', data.identifier)
+    cb('ok')
+end)
+
 -- Eliminar propiedad
 RegisterNUICallback('removeProperty', function(data, cb)
     TriggerServerEvent('ax_staff:removeProperty', data.house, data.identifier)
     cb('ok')
+end)
+
+-- ========== TAB COMIDAS ==========
+
+-- Obtener lista de comidas
+RegisterNUICallback('getFoodItems', function(data, cb)
+    ESX.TriggerServerCallback('ax_staff:getFoodItems', function(items)
+        cb(items)
+    end)
+end)
+
+-- Agregar comida
+RegisterNUICallback('addFoodItem', function(data, cb)
+    TriggerServerEvent('ax_staff:addFoodItem', data)
+    cb({success = true})
+end)
+
+-- Actualizar comida
+RegisterNUICallback('updateFoodItem', function(data, cb)
+    TriggerServerEvent('ax_staff:updateFoodItem', data)
+    cb({success = true})
+end)
+
+-- Eliminar comida
+RegisterNUICallback('deleteFoodItem', function(data, cb)
+    TriggerServerEvent('ax_staff:deleteFoodItem', data.id)
+    cb({success = true})
+end)
+
+-- Variable para evitar spam de uso
+local isUsingFood = false
+
+-- Evento cuando se usa un item de comida
+RegisterNetEvent('ax_staff:useFoodItem', function(itemData)
+    -- Prevenir spam
+    if isUsingFood then
+        ESX.ShowNotification('Ya estás usando un item', 'error')
+        return
+    end
+    
+    isUsingFood = true
+    local playerPed = PlayerPedId()
+    
+    -- Determinar animación según categoría
+    local animData = Config.FoodAnimations[itemData.category] or Config.FoodAnimations.food
+    
+    -- Cargar diccionario de animación
+    RequestAnimDict(animData.dict)
+    while not HasAnimDictLoaded(animData.dict) do
+        Wait(100)
+    end
+    
+    -- Cargar modelo del prop
+    local propModel = GetHashKey(animData.prop)
+    RequestModel(propModel)
+    while not HasModelLoaded(propModel) do
+        Wait(100)
+    end
+    
+    -- Crear prop
+    local prop = CreateObject(propModel, 0.0, 0.0, 0.0, true, true, true)
+    AttachEntityToEntity(prop, playerPed, GetPedBoneIndex(playerPed, animData.bone), 
+        animData.pos.x, animData.pos.y, animData.pos.z, 
+        animData.rot.x, animData.rot.y, animData.rot.z, 
+        true, true, false, true, 1, true)
+    
+    -- Iniciar animación
+    TaskPlayAnim(playerPed, animData.dict, animData.anim, 8.0, -8.0, -1, 49, 0, false, false, false)
+    
+    -- Determinar label
+    local categoryText = 'Comiendo'
+    if itemData.category == 'drink' then
+        categoryText = 'Bebiendo'
+    elseif itemData.category == 'alcohol' then
+        categoryText = 'Tomando'
+    end
+    
+    ESX.ShowNotification(categoryText .. ' ' .. itemData.label .. '...', 'info')
+    
+    -- Esperar duración de la animación
+    Wait(animData.duration)
+    
+    -- Detener animación
+    ClearPedTasks(playerPed)
+    
+    -- Eliminar prop
+    if DoesEntityExist(prop) then
+        DeleteObject(prop)
+    end
+    
+    -- Aplicar efectos
+    TriggerServerEvent('ax_staff:applyFoodEffects', itemData.item_name)
+    
+    -- Si es alcohol, aplicar efecto de embriaguez
+    if itemData.category == 'alcohol' and itemData.alcohol > 0 then
+        ApplyDrunkEffect(itemData.alcohol)
+    end
+    
+    -- Notificación final
+    categoryText = 'comiste'
+    if itemData.category == 'drink' then
+        categoryText = 'bebiste'
+    elseif itemData.category == 'alcohol' then
+        categoryText = 'tomaste'
+    end
+    ESX.ShowNotification('Has ' .. categoryText .. ' ' .. itemData.label)
+    
+    -- Liberar el flag
+    isUsingFood = false
+end)
+
+-- Función para aplicar efecto de embriaguez
+function ApplyDrunkEffect(alcoholLevel)
+    local playerPed = PlayerPedId()
+    local duration = alcoholLevel * 1000
+    
+    local drunkLevel = math.floor(alcoholLevel / 20)
+    
+    if drunkLevel >= 1 then
+        SetPedIsDrunk(playerPed, true)
+        
+        if drunkLevel >= 2 then
+            SetTimecycleModifier("drunk")
+        end
+        
+        if drunkLevel >= 3 then
+            ShakeGameplayCam("DRUNK_SHAKE", 0.5)
+        end
+        
+        if drunkLevel >= 4 then
+            SetPedMovementClipset(playerPed, "move_m@drunk@verydrunk", 1.0)
+        end
+        
+        CreateThread(function()
+            Wait(duration)
+            
+            SetPedIsDrunk(playerPed, false)
+            ClearTimecycleModifier()
+            StopGameplayCamShaking(true)
+            ResetPedMovementClipset(playerPed, 1.0)
+        end)
+    end
+end
+
+-- Export para ox_inventory (usar items configurados)
+exports('useConfiguredFood', function(data, slot)
+    local itemName = data.name
+    
+    ESX.TriggerServerCallback('ax_staff:getFoodItemByName', function(foodData)
+        if foodData then
+            TriggerEvent('ax_staff:useFoodItem', foodData)
+        else
+            ESX.ShowNotification('Este item no tiene efectos configurados', 'info')
+        end
+    end, itemName)
 end)

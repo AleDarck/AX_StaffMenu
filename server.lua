@@ -942,3 +942,206 @@ RegisterNetEvent('ax_staff:deleteCharacter', function(identifier)
         '**Staff:** ' .. xPlayer.getName() .. '\n**Licencia:** ' .. identifier,
         15158332)
 end)
+
+-- ========== TAB COMIDAS ==========
+
+-- Obtener todas las comidas configuradas
+ESX.RegisterServerCallback('ax_staff:getFoodItems', function(source, cb)
+    MySQL.query('SELECT * FROM staff_food_config ORDER BY id DESC', {}, function(result)
+        cb(result or {})
+    end)
+end)
+
+-- Agregar nueva comida
+RegisterNetEvent('ax_staff:addFoodItem', function(data)
+    local source = source
+    local xPlayer = ESX.GetPlayerFromId(source)
+    
+    if not xPlayer or not hasActionPermission(source, 'managefood') then
+        return
+    end
+    
+    -- Validar rangos
+    if data.hunger < -100 or data.hunger > 100 or 
+       data.thirst < -100 or data.thirst > 100 or 
+       data.stress < -100 or data.stress > 100 or 
+       data.alcohol < -100 or data.alcohol > 100 then
+        TriggerClientEvent('ox_lib:notify', source, {
+            title = 'Error',
+            description = 'Los valores deben estar entre -100 y 100',
+            type = 'error'
+        })
+        return
+    end
+    
+    -- Verificar que el item existe en ox_inventory
+    local itemExists = exports.ox_inventory:Items(data.item_name)
+    if not itemExists then
+        TriggerClientEvent('ox_lib:notify', source, {
+            title = 'Error',
+            description = 'Este item no existe en ox_inventory',
+            type = 'error'
+        })
+        return
+    end
+    
+    -- Verificar si el item ya está configurado
+    MySQL.query('SELECT id FROM staff_food_config WHERE item_name = ?', {
+        data.item_name
+    }, function(result)
+        if result and #result > 0 then
+            TriggerClientEvent('ox_lib:notify', source, {
+                title = 'Error',
+                description = 'Este item ya está configurado',
+                type = 'error'
+            })
+            return
+        end
+        
+        -- Insertar nueva comida
+        MySQL.insert('INSERT INTO staff_food_config (item_name, label, category, hunger, thirst, stress, alcohol) VALUES (?, ?, ?, ?, ?, ?, ?)', {
+            data.item_name,
+            data.label,
+            data.category,
+            data.hunger,
+            data.thirst,
+            data.stress,
+            data.alcohol
+        }, function(insertId)
+            if insertId then
+                TriggerClientEvent('ox_lib:notify', source, {
+                    title = 'Éxito',
+                    description = 'Comida agregada correctamente',
+                    type = 'success'
+                })
+                
+                -- Log en Discord
+                SendToDiscord('Comida Agregada',
+                    '**Staff:** ' .. xPlayer.getName() .. '\n**Item:** ' .. data.item_name .. '\n**Label:** ' .. data.label .. '\n**Categoría:** ' .. data.category,
+                    3066993)
+            end
+        end)
+    end)
+end)
+
+-- Actualizar comida existente
+RegisterNetEvent('ax_staff:updateFoodItem', function(data)
+    local source = source
+    local xPlayer = ESX.GetPlayerFromId(source)
+    
+    if not xPlayer or not hasActionPermission(source, 'managefood') then
+        return
+    end
+    
+    -- Validar rangos
+    if data.hunger < -100 or data.hunger > 100 or 
+       data.thirst < -100 or data.thirst > 100 or 
+       data.stress < -100 or data.stress > 100 or 
+       data.alcohol < -100 or data.alcohol > 100 then
+        TriggerClientEvent('ox_lib:notify', source, {
+            title = 'Error',
+            description = 'Los valores deben estar entre -100 y 100',
+            type = 'error'
+        })
+        return
+    end
+    
+    MySQL.update('UPDATE staff_food_config SET label = ?, category = ?, hunger = ?, thirst = ?, stress = ?, alcohol = ? WHERE id = ?', {
+        data.label,
+        data.category,
+        data.hunger,
+        data.thirst,
+        data.stress,
+        data.alcohol,
+        data.id
+    }, function(affectedRows)
+        if affectedRows > 0 then
+            TriggerClientEvent('ox_lib:notify', source, {
+                title = 'Éxito',
+                description = 'Comida actualizada correctamente',
+                type = 'success'
+            })
+            
+            -- Log en Discord
+            SendToDiscord('Comida Actualizada',
+                '**Staff:** ' .. xPlayer.getName() .. '\n**ID:** ' .. data.id .. '\n**Label:** ' .. data.label,
+                3447003)
+        end
+    end)
+end)
+
+-- Eliminar comida
+RegisterNetEvent('ax_staff:deleteFoodItem', function(id)
+    local source = source
+    local xPlayer = ESX.GetPlayerFromId(source)
+    
+    if not xPlayer or not hasActionPermission(source, 'managefood') then
+        return
+    end
+    
+    -- Obtener info antes de eliminar para el log
+    MySQL.query('SELECT item_name, label FROM staff_food_config WHERE id = ?', {id}, function(result)
+        if result and #result > 0 then
+            local itemData = result[1]
+            
+            MySQL.query('DELETE FROM staff_food_config WHERE id = ?', {id}, function()
+                TriggerClientEvent('ox_lib:notify', source, {
+                    title = 'Éxito',
+                    description = 'Comida eliminada correctamente',
+                    type = 'success'
+                })
+                
+                -- Log en Discord
+                SendToDiscord('Comida Eliminada',
+                    '**Staff:** ' .. xPlayer.getName() .. '\n**Item:** ' .. itemData.item_name .. '\n**Label:** ' .. itemData.label,
+                    15158332)
+            end)
+        end
+    end)
+end)
+
+-- Aplicar efectos de comida/bebida
+RegisterNetEvent('ax_staff:applyFoodEffects', function(itemName)
+    local source = source
+    local xPlayer = ESX.GetPlayerFromId(source)
+    
+    if not xPlayer then return end
+    
+    -- Obtener configuración del item
+    MySQL.query('SELECT * FROM staff_food_config WHERE item_name = ?', {itemName}, function(result)
+        if result and #result > 0 then
+            local itemData = result[1]
+            
+            -- Aplicar efectos usando esx_status
+            if itemData.hunger ~= 0 then
+                TriggerClientEvent('esx_status:add', source, 'hunger', itemData.hunger * 10000)
+            end
+            
+            if itemData.thirst ~= 0 then
+                TriggerClientEvent('esx_status:add', source, 'thirst', itemData.thirst * 10000)
+            end
+            
+            if itemData.stress ~= 0 then
+                TriggerClientEvent('esx_status:add', source, 'stress', itemData.stress * 10000)
+            end
+            
+            if itemData.alcohol ~= 0 then
+                TriggerClientEvent('esx_status:add', source, 'drunk', itemData.alcohol * 10000)
+            end
+            
+            -- Ejecutar animación en el cliente
+            TriggerClientEvent('ax_staff:useFoodItem', source, itemData)
+        end
+    end)
+end)
+
+-- Callback para obtener item por nombre (para ox_inventory)
+ESX.RegisterServerCallback('ax_staff:getFoodItemByName', function(source, cb, itemName)
+    MySQL.query('SELECT * FROM staff_food_config WHERE item_name = ?', {itemName}, function(result)
+        if result and #result > 0 then
+            cb(result[1])
+        else
+            cb(nil)
+        end
+    end)
+end)
