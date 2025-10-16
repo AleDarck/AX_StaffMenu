@@ -191,10 +191,36 @@
                     </div>
                 </div>
 
-                <!-- Tab REPORTES (placeholder) -->
+                <!-- Tab REPORTES -->
                 <div class="tab-content" id="tab-reportes">
-                    <h2 class="section-title">REPORTES</h2>
-                    <p>Contenido próximamente...</p>
+                    <div class="reportes-container">
+                        <!-- Lado Izquierdo: Panel de Reportes Aceptados -->
+                        <div class="reportes-left-section">
+                            <div class="panel-reportes-card">
+                                <div class="panel-reportes-header">
+                                    <h3 class="panel-reportes-title">PANEL DE REPORTES</h3>
+                                </div>
+                                <div class="panel-reportes-content" id="panelReportesContent">
+                                    <p class="empty-message">No hay reportes aceptados</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Lado Derecho: Lista de Reportes -->
+                        <div class="reportes-right-section">
+                            <div class="lista-reportes-card">
+                                <div class="lista-reportes-header">
+                                    <h3 class="lista-reportes-title">REPORTES</h3>
+                                    <button class="refresh-reportes-btn" id="refreshReportesBtn">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                </div>
+                                <div class="lista-reportes-content" id="listaReportesContent">
+                                    <p class="empty-message">No hay reportes pendientes</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Tab ARCHIVO (placeholder) -->
@@ -491,6 +517,39 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div> <!-- Cierre de .container (menú staff) -->
+
+    <!-- Modal para Reportar (FUERA del menú staff) -->
+    <div class="report-modal" id="reportModal">
+        <div class="report-modal-content">
+            <div class="report-modal-header">
+                <h3 class="report-modal-title">ENVIAR REPORTE</h3>
+                <button class="report-modal-close" id="closeReportModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="report-modal-body">
+                <div class="report-input-group">
+                    <label>RAZÓN</label>
+                    <input type="text" id="reportReason" class="report-input" placeholder="Ejemplo: Necesito ayuda con..." maxlength="100">
+                </div>
+
+                <div class="report-input-group">
+                    <label>DESCRIPCIÓN DEL REPORTE</label>
+                    <textarea id="reportDescription" class="report-textarea" placeholder="Describe detalladamente tu situación..." rows="6" maxlength="500"></textarea>
+                </div>
+
+                <div class="report-char-count">
+                    <span id="descriptionCharCount">0/500 caracteres</span>
+                </div>
+            </div>
+
+            <div class="report-modal-footer">
+                <button class="report-modal-btn cancel" id="cancelReportBtn">CANCELAR</button>
+                <button class="report-modal-btn confirm" id="sendReportBtn">ENVIAR REPORTE</button>
             </div>
         </div>
     </div>

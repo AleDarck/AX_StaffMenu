@@ -3,7 +3,8 @@ Config = {}
 -- Grupos que pueden acceder al menú
 Config.AllowedGroups = {
     'admin',
-    'mod'
+    'mod',
+    'helper'
 }
 
 -- Comando para abrir el menú
@@ -36,6 +37,12 @@ Config.Permissions = {
     -- Tab de items (agregar esta línea)
     giveitems = {'admin'},
 }
+
+-- Permisos para reportes
+Config.Permissions.viewreports = {'admin', 'mod', 'helper'}
+Config.Permissions.acceptreport = {'admin', 'mod', 'helper'}
+Config.Permissions.deletereport = {'admin', 'mod'}
+Config.Permissions.reportactions = {'admin', 'mod', 'helper'}
 
 -- ========== TAB COMIDAS ==========
 

@@ -801,38 +801,55 @@ RegisterNetEvent('ax_staff:useFoodItem', function(itemData)
         categoryText = 'Tomando'
     end
     
-    ESX.ShowNotification(categoryText .. ' ' .. itemData.label .. '...', 'info')
-    
-    -- Esperar duración de la animación
-    Wait(animData.duration)
-    
-    -- Detener animación
-    ClearPedTasks(playerPed)
-    
-    -- Eliminar prop
-    if DoesEntityExist(prop) then
-        DeleteObject(prop)
-    end
-    
-    -- Aplicar efectos
-    TriggerServerEvent('ax_staff:applyFoodEffects', itemData.item_name)
-    
-    -- Si es alcohol, aplicar efecto de embriaguez
-    if itemData.category == 'alcohol' and itemData.alcohol > 0 then
-        ApplyDrunkEffect(itemData.alcohol)
-    end
-    
-    -- Notificación final
-    categoryText = 'comiste'
-    if itemData.category == 'drink' then
-        categoryText = 'bebiste'
-    elseif itemData.category == 'alcohol' then
-        categoryText = 'tomaste'
-    end
-    ESX.ShowNotification('Has ' .. categoryText .. ' ' .. itemData.label)
-    
-    -- Liberar el flag
-    isUsingFood = false
+    -- TU PROGRESSBAR PERSONALIZADA
+    exports['AX_ProgressBar']:Progress({
+        duration = animData.duration,
+        label = categoryText .. ' ' .. itemData.label,
+        useWhileDead = false,
+        canCancel = true,
+        controlDisables = {
+            disableMovement = false,
+            disableCarMovement = false,
+            disableMouse = false,
+            disableCombat = true,
+        },
+    }, function(cancelled)
+        -- Detener animación
+        ClearPedTasks(playerPed)
+        
+        -- Eliminar prop
+        if DoesEntityExist(prop) then
+            DeleteObject(prop)
+        end
+        
+        if not cancelled then
+            -- Acción completada
+            -- Aplicar efectos
+            TriggerServerEvent('ax_staff:applyFoodEffects', itemData.item_name)
+            
+            -- Si es alcohol, aplicar efecto de embriaguez
+            if itemData.category == 'alcohol' and itemData.alcohol > 0 then
+                ApplyDrunkEffect(itemData.alcohol)
+            end
+            
+            -- Notificación final
+            local finalText = 'comiste'
+            if itemData.category == 'drink' then
+                finalText = 'bebiste'
+            elseif itemData.category == 'alcohol' then
+                finalText = 'tomaste'
+            end
+            ESX.ShowNotification('Has ' .. finalText .. ' ' .. itemData.label)
+        else
+            -- Acción cancelada - devolver item
+            TriggerServerEvent('ax_staff:cancelFoodUse', itemData.item_name)
+            ESX.ShowNotification('Acción cancelada', 'error')
+        end
+        
+        -- Liberar el flag
+        Wait(500)
+        isUsingFood = false
+    end)
 end)
 
 -- Función para aplicar efecto de embriaguez
@@ -879,4 +896,78 @@ exports('useConfiguredFood', function(data, slot)
             ESX.ShowNotification('Este item no tiene efectos configurados', 'info')
         end
     end, itemName)
+end)
+
+-- ========== SISTEMA DE REPORTES ==========
+
+-- Comando para reportar
+RegisterCommand('reportar', function()
+    SendNUIMessage({
+        action = 'openReportModal'
+    })
+    SetNuiFocus(true, true)
+end, false)
+
+-- Enviar reporte
+RegisterNUICallback('sendReport', function(data, cb)
+    SetNuiFocus(false, false)
+    TriggerServerEvent('ax_staff:sendReport', data)
+    cb('ok')
+end)
+
+-- Recibir notificación de reporte aceptado
+RegisterNetEvent('ax_staff:reportAccepted', function(staffName)
+    ESX.ShowNotification('Tu reporte fue aceptado por ' .. staffName .. '. En breve te atenderán.', 'success')
+end)
+
+-- Recibir notificación de que no hay staff
+RegisterNetEvent('ax_staff:noStaffAvailable', function()
+    ESX.ShowNotification('No hay staff disponible. Por favor abre un ticket en Discord para mayor velocidad.', 'warning')
+end)
+
+-- Callbacks para reportes
+RegisterNUICallback('getReports', function(data, cb)
+    ESX.TriggerServerCallback('ax_staff:getReports', function(reports)
+        cb(reports)
+    end)
+end)
+
+RegisterNUICallback('acceptReport', function(data, cb)
+    TriggerServerEvent('ax_staff:acceptReport', data.reportId)
+    cb('ok')
+end)
+
+RegisterNUICallback('deleteReport', function(data, cb)
+    TriggerServerEvent('ax_staff:deleteReport', data.reportId)
+    cb('ok')
+end)
+
+RegisterNUICallback('prioritizeReport', function(data, cb)
+    TriggerServerEvent('ax_staff:prioritizeReport', data.reportId)
+    cb('ok')
+end)
+
+RegisterNUICallback('reportAction', function(data, cb)
+    TriggerServerEvent('ax_staff:reportAction', data.action, data.reportId)
+    cb('ok')
+end)
+
+-- Recibir evento de nuevo reporte
+RegisterNetEvent('ax_staff:newReport', function()
+    SendNUIMessage({
+        action = 'newReport'
+    })
+end)
+
+-- Recibir evento de actualizar reportes
+RegisterNetEvent('ax_staff:refreshReports', function()
+    SendNUIMessage({
+        action = 'refreshReports'
+    })
+end)
+
+-- Cerrar solo el modal de reporte
+RegisterNUICallback('closeReportModal', function(data, cb)
+    SetNuiFocus(false, false)
+    cb('ok')
 end)

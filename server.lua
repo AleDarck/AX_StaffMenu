@@ -1112,6 +1112,13 @@ RegisterNetEvent('ax_staff:applyFoodEffects', function(itemName)
         if result and #result > 0 then
             local itemData = result[1]
             
+            -- Remover el item del inventario
+            local removed = exports.ox_inventory:RemoveItem(source, itemName, 1)
+            
+            if not removed then
+                return
+            end
+            
             -- Aplicar efectos usando esx_status
             if itemData.hunger ~= 0 then
                 TriggerClientEvent('esx_status:add', source, 'hunger', itemData.hunger * 10000)
@@ -1128,9 +1135,6 @@ RegisterNetEvent('ax_staff:applyFoodEffects', function(itemName)
             if itemData.alcohol ~= 0 then
                 TriggerClientEvent('esx_status:add', source, 'drunk', itemData.alcohol * 10000)
             end
-            
-            -- Ejecutar animación en el cliente
-            TriggerClientEvent('ax_staff:useFoodItem', source, itemData)
         end
     end)
 end)
@@ -1142,6 +1146,244 @@ ESX.RegisterServerCallback('ax_staff:getFoodItemByName', function(source, cb, it
             cb(result[1])
         else
             cb(nil)
+        end
+    end)
+end)
+
+-- Devolver item si cancela el uso
+RegisterNetEvent('ax_staff:cancelFoodUse', function(itemName)
+    local source = source
+    
+    -- Devolver el item que ya fue removido
+    exports.ox_inventory:AddItem(source, itemName, 1)
+end)
+
+-- ========== SISTEMA DE REPORTES ==========
+
+-- Enviar reporte
+RegisterNetEvent('ax_staff:sendReport', function(data)
+    local source = source
+    local xPlayer = ESX.GetPlayerFromId(source)
+    
+    if not xPlayer then return end
+    
+    -- Verificar si hay staff en servicio
+    local staffAvailable = false
+    for identifier, onDuty in pairs(staffOnDuty) do
+        if onDuty then
+            staffAvailable = true
+            break
+        end
+    end
+    
+    if not staffAvailable then
+        TriggerClientEvent('ax_staff:noStaffAvailable', source)
+        -- Aún así guardar el reporte
+    end
+    
+    -- Guardar reporte en la base de datos
+    MySQL.insert('INSERT INTO staff_reports (reporter_id, reporter_name, reporter_identifier, reason, description, status) VALUES (?, ?, ?, ?, ?, ?)', {
+        source,
+        xPlayer.getName(),
+        xPlayer.identifier,
+        data.reason,
+        data.description,
+        'pending'
+    }, function(insertId)
+        if insertId then
+            -- Notificar al jugador
+            TriggerClientEvent('ox_lib:notify', source, {
+                title = 'Reporte Enviado',
+                description = 'Tu reporte ha sido enviado correctamente',
+                type = 'success'
+            })
+            
+            -- Notificar a todos los staff en servicio
+            local players = ESX.GetExtendedPlayers()
+            for _, player in ipairs(players) do
+                local identifier = player.identifier
+                if staffOnDuty[identifier] then
+                    TriggerClientEvent('ax_staff:newReport', player.source)
+                end
+            end
+            
+            -- Log en Discord
+            SendToDiscord('Nuevo Reporte',
+                '**Jugador:** ' .. xPlayer.getName() .. ' (ID: ' .. source .. ')\n**Razón:** ' .. data.reason .. '\n**Descripción:** ' .. data.description,
+                3447003)
+        end
+    end)
+end)
+
+-- Callback para obtener reportes
+ESX.RegisterServerCallback('ax_staff:getReports', function(source, cb)
+    if not hasActionPermission(source, 'viewreports') then
+        cb({})
+        return
+    end
+    
+    MySQL.query('SELECT * FROM staff_reports ORDER BY created_at DESC', {}, function(result)
+        cb(result or {})
+    end)
+end)
+
+-- Aceptar reporte
+RegisterNetEvent('ax_staff:acceptReport', function(reportId)
+    local source = source
+    local xPlayer = ESX.GetPlayerFromId(source)
+    
+    if not xPlayer or not hasActionPermission(source, 'acceptreport') then
+        return
+    end
+    
+    -- Obtener información del reporte
+    MySQL.query('SELECT status, reporter_id FROM staff_reports WHERE id = ?', {reportId}, function(result)
+        if result and #result > 0 then
+            local currentStatus = result[1].status
+            
+            -- Permitir aceptar si está pendiente O en prioridad
+            if currentStatus ~= 'pending' and currentStatus ~= 'priority' then
+                TriggerClientEvent('ox_lib:notify', source, {
+                    title = 'Error',
+                    description = 'Este reporte ya fue aceptado por otro staff',
+                    type = 'error'
+                })
+                return
+            end
+            
+            -- Actualizar reporte
+            MySQL.update('UPDATE staff_reports SET status = ?, accepted_by = ?, accepted_by_name = ? WHERE id = ?', {
+                'accepted',
+                xPlayer.identifier,
+                xPlayer.getName(),
+                reportId
+            }, function(affectedRows)
+                if affectedRows > 0 then
+                    -- Notificar al staff
+                    TriggerClientEvent('ox_lib:notify', source, {
+                        title = 'Reporte Aceptado',
+                        description = 'Has aceptado el reporte',
+                        type = 'success'
+                    })
+                    
+                    -- Notificar al jugador que reportó
+                    TriggerClientEvent('ax_staff:reportAccepted', result[1].reporter_id, xPlayer.getName())
+                    
+                    -- Actualizar para todos los staff
+                    local players = ESX.GetExtendedPlayers()
+                    for _, player in ipairs(players) do
+                        local identifier = player.identifier
+                        if staffOnDuty[identifier] then
+                            TriggerClientEvent('ax_staff:refreshReports', player.source)
+                        end
+                    end
+                    
+                    -- Log en Discord
+                    SendToDiscord('Reporte Aceptado',
+                        '**Staff:** ' .. xPlayer.getName() .. '\n**ID Reporte:** ' .. reportId,
+                        3066993)
+                end
+            end)
+        end
+    end)
+end)
+
+-- Borrar reporte
+RegisterNetEvent('ax_staff:deleteReport', function(reportId)
+    local source = source
+    local xPlayer = ESX.GetPlayerFromId(source)
+    
+    if not xPlayer or not hasActionPermission(source, 'deletereport') then
+        return
+    end
+    
+    MySQL.query('DELETE FROM staff_reports WHERE id = ?', {reportId}, function()
+        TriggerClientEvent('ox_lib:notify', source, {
+            title = 'Reporte Eliminado',
+            description = 'El reporte ha sido eliminado',
+            type = 'success'
+        })
+        
+        -- Actualizar para todos los staff
+        local players = ESX.GetExtendedPlayers()
+        for _, player in ipairs(players) do
+            local identifier = player.identifier
+            if staffOnDuty[identifier] then
+                TriggerClientEvent('ax_staff:refreshReports', player.source)
+            end
+        end
+        
+        -- Log en Discord
+        SendToDiscord('Reporte Eliminado',
+            '**Staff:** ' .. xPlayer.getName() .. '\n**ID Reporte:** ' .. reportId,
+            15158332)
+    end)
+end)
+
+-- Subir prioridad de reporte
+RegisterNetEvent('ax_staff:prioritizeReport', function(reportId)
+    local source = source
+    local xPlayer = ESX.GetPlayerFromId(source)
+    
+    if not xPlayer or not hasActionPermission(source, 'reportactions') then
+        return
+    end
+    
+    MySQL.update('UPDATE staff_reports SET status = ?, accepted_by = NULL, accepted_by_name = NULL WHERE id = ?', {
+        'priority',
+        reportId
+    }, function(affectedRows)
+        if affectedRows > 0 then
+            TriggerClientEvent('ox_lib:notify', source, {
+                title = 'Prioridad Aumentada',
+                description = 'El reporte ahora tiene prioridad alta',
+                type = 'warning'
+            })
+            
+            -- Actualizar para todos los staff
+            local players = ESX.GetExtendedPlayers()
+            for _, player in ipairs(players) do
+                local identifier = player.identifier
+                if staffOnDuty[identifier] then
+                    TriggerClientEvent('ax_staff:refreshReports', player.source)
+                end
+            end
+            
+            -- Log en Discord
+            SendToDiscord('Reporte Priorizado',
+                '**Staff:** ' .. xPlayer.getName() .. '\n**ID Reporte:** ' .. reportId,
+                16776960)
+        end
+    end)
+end)
+
+-- Acciones del reporte (espectear, ir, traer, etc.)
+RegisterNetEvent('ax_staff:reportAction', function(action, reportId)
+    local source = source
+    
+    if not hasActionPermission(source, 'reportactions') then
+        return
+    end
+    
+    -- Obtener el ID del jugador del reporte
+    MySQL.query('SELECT reporter_id FROM staff_reports WHERE id = ?', {reportId}, function(result)
+        if result and #result > 0 then
+            local targetId = result[1].reporter_id
+            
+            -- Ejecutar la acción correspondiente
+            if action == 'spectate' then
+                TriggerClientEvent('ax_staff:spectatePlayerClient', source, targetId)
+            elseif action == 'goto' then
+                TriggerClientEvent('ax_staff:gotoPlayerClient', source, targetId)
+            elseif action == 'bring' then
+                TriggerClientEvent('ax_staff:bringPlayerClient', source, targetId)
+            elseif action == 'return' then
+                TriggerClientEvent('ax_staff:returnPlayerClient', targetId)
+            elseif action == 'freeze' then
+                TriggerClientEvent('ax_staff:freezePlayerClient', targetId)
+            elseif action == 'revive' then
+                TriggerClientEvent('esx_ambulancejob:revive', targetId)
+            end
         end
     end)
 end)

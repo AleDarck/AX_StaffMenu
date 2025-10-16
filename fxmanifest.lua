@@ -33,5 +33,6 @@ dependencies {
     'es_extended',
     'oxmysql',
     'ox_inventory',
-    'esx_status'
+    'esx_status',
+    'AX_ProgressBar'
 }

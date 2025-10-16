@@ -155,6 +155,9 @@ function loadChatMessages() {
         return response.json();
     })
     .then(messages => {
+        // AGREGAR ESTA LÍNEA PARA LIMPIAR ANTES DE CARGAR:
+        document.getElementById('chatMessages').innerHTML = '';
+        
         if (messages && messages.length > 0) {
             messages.forEach(msg => addChatMessage(msg));
         }
@@ -254,8 +257,26 @@ window.addEventListener('message', function(event) {
         addChatMessage(data.data);
     } else if (data.action === 'clearChat') {
         document.getElementById('chatMessages').innerHTML = '';
-    } else if (data.action === 'forceClose') { // AGREGAR ESTA LÍNEA
+    } else if (data.action === 'forceClose') {
         document.getElementById('staffMenu').style.display = 'none';
+    } else if (data.action === 'openReportModal') {
+        // MODIFICAR ESTA PARTE
+        const reportModal = document.getElementById('reportModal');
+        reportModal.style.display = 'flex';
+        setTimeout(() => {
+            reportModal.classList.add('active');
+        }, 10);
+        document.getElementById('reportReason').value = '';
+        document.getElementById('reportDescription').value = '';
+        updateCharCount();
+    } else if (data.action === 'newReport') {
+        if (document.querySelector('[data-tab="reportes"]').classList.contains('active')) {
+            loadReports();
+        }
+    } else if (data.action === 'refreshReports') {
+        if (document.querySelector('[data-tab="reportes"]').classList.contains('active')) {
+            loadReports();
+        }
     }
 });
 
@@ -2168,3 +2189,337 @@ function deleteFoodItem(id) {
         loadFoodItems();
     });
 }
+
+// ========== TAB REPORTES ==========
+
+let allReports = [];
+let myAcceptedReports = [];
+
+// Cargar reportes cuando se abre el tab
+document.querySelector('[data-tab="reportes"]').addEventListener('click', function() {
+    loadReports();
+});
+
+// Cargar todos los reportes
+function loadReports() {
+    fetch(`https://${GetParentResourceName()}/getReports`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({})
+    }).then(response => response.json())
+    .then(reports => {
+        allReports = reports;
+        displayReports();
+    }).catch(error => {
+        console.log('Error cargando reportes:', error);
+    });
+}
+
+// Mostrar reportes en ambos paneles
+function displayReports() {
+    const listaContainer = document.getElementById('listaReportesContent');
+    const panelContainer = document.getElementById('panelReportesContent');
+    
+    // Filtrar reportes pendientes y prioritarios para la lista
+    const pendingReports = allReports.filter(r => r.status === 'pending' || r.status === 'priority');
+    
+    // Filtrar reportes aceptados para el panel
+    const acceptedReports = allReports.filter(r => r.status === 'accepted');
+    
+    // Mostrar lista de reportes
+    if (pendingReports.length === 0) {
+        listaContainer.innerHTML = '<p class="empty-message">No hay reportes pendientes</p>';
+    } else {
+        listaContainer.innerHTML = '';
+        pendingReports.forEach(report => {
+            const card = createReportCard(report);
+            listaContainer.appendChild(card);
+        });
+    }
+    
+    // Mostrar panel de reportes aceptados
+    if (acceptedReports.length === 0) {
+        panelContainer.innerHTML = '<p class="empty-message">No hay reportes aceptados</p>';
+    } else {
+        panelContainer.innerHTML = '';
+        acceptedReports.forEach(report => {
+            const card = createAcceptedReportCard(report);
+            panelContainer.appendChild(card);
+        });
+    }
+}
+
+// Crear card de reporte para la lista
+function createReportCard(report) {
+    const card = document.createElement('div');
+    card.className = `report-card ${report.status}`;
+    
+    let acceptedInfo = '';
+    // Solo mostrar "ACEPTADO POR" si está en estado accepted (no priority)
+    if (report.status === 'accepted' && report.accepted_by_name) {
+        acceptedInfo = `
+            <div class="report-card-accepted">
+                ACEPTADO POR: <span>${report.accepted_by_name}</span>
+            </div>
+        `;
+    }
+    
+    // Botones si está pendiente o en prioridad
+    let buttons = '';
+    if (report.status === 'pending' || report.status === 'priority') {
+        buttons = `
+            <div class="report-card-actions">
+                <button class="report-card-btn accept" data-id="${report.id}">
+                    <i class="fas fa-check"></i> ACEPTAR
+                </button>
+                <button class="report-card-btn delete" data-id="${report.id}">
+                    <i class="fas fa-trash"></i> BORRAR
+                </button>
+            </div>
+        `;
+    }
+    
+    card.innerHTML = `
+        <div class="report-card-info">
+            <div class="report-card-reason">
+                RAZÓN: <span>${report.reason}</span>
+            </div>
+            <div class="report-card-player">
+                <span>NOMBRE: ${report.reporter_name}</span>
+            </div>
+            <div class="report-card-id">
+                ID: <span>${report.reporter_id}</span>
+            </div>
+            ${acceptedInfo}
+        </div>
+        ${buttons}
+    `;
+    
+    return card;
+}
+
+// Crear card de reporte aceptado para el panel
+function createAcceptedReportCard(report) {
+    const card = document.createElement('div');
+    card.className = 'accepted-report-card';
+    
+    card.innerHTML = `
+        <div class="accepted-report-header">
+            <div class="accepted-report-reason">
+                RAZÓN: <span>${report.reason}</span>
+            </div>
+            <div class="accepted-report-description">
+                <strong>Descripción:</strong><br>
+                ${report.description}
+            </div>
+        </div>
+        <div class="accepted-report-actions-title">ACCIONES RÁPIDAS</div>
+        <div class="accepted-report-actions">
+            <button class="report-action-btn" data-action="spectate" data-id="${report.id}">
+                <i class="fas fa-eye"></i> ESPECTAR
+            </button>
+            <button class="report-action-btn" data-action="goto" data-id="${report.id}">
+                <i class="fas fa-location-arrow"></i> IR
+            </button>
+            <button class="report-action-btn" data-action="bring" data-id="${report.id}">
+                <i class="fas fa-hand-point-down"></i> TRAER
+            </button>
+            <button class="report-action-btn" data-action="return" data-id="${report.id}">
+                <i class="fas fa-undo"></i> REGRESAR
+            </button>
+            <button class="report-action-btn" data-action="freeze" data-id="${report.id}">
+                <i class="fas fa-snowflake"></i> CONGELAR
+            </button>
+            <button class="report-action-btn" data-action="revive" data-id="${report.id}">
+                <i class="fas fa-heart"></i> REVIVIR
+            </button>
+            <button class="report-action-btn priority" data-action="prioritize" data-id="${report.id}">
+                <i class="fas fa-exclamation-triangle"></i> SUBIR PRIORIDAD
+            </button>
+            <button class="report-action-btn close-report" data-action="close" data-id="${report.id}">
+                <i class="fas fa-check-circle"></i> CERRAR REPORTE
+            </button>
+        </div>
+    `;
+    
+    return card;
+}
+
+// Event delegation para botones de reportes
+document.getElementById('listaReportesContent').addEventListener('click', function(e) {
+    const acceptBtn = e.target.closest('.report-card-btn.accept');
+    const deleteBtn = e.target.closest('.report-card-btn.delete');
+    
+    if (acceptBtn) {
+        const reportId = parseInt(acceptBtn.dataset.id);
+        acceptReport(reportId);
+    } else if (deleteBtn) {
+        const reportId = parseInt(deleteBtn.dataset.id);
+        deleteReport(reportId);
+    }
+});
+
+// Event delegation para acciones rápidas del panel
+document.getElementById('panelReportesContent').addEventListener('click', function(e) {
+    const actionBtn = e.target.closest('.report-action-btn');
+    
+    if (actionBtn) {
+        const action = actionBtn.dataset.action;
+        const reportId = parseInt(actionBtn.dataset.id);
+        
+        if (action === 'prioritize') {
+            prioritizeReport(reportId);
+        } else if (action === 'close') {
+            deleteReport(reportId);
+        } else {
+            executeReportAction(action, reportId);
+        }
+    }
+});
+
+// Aceptar reporte
+function acceptReport(reportId) {
+    fetch(`https://${GetParentResourceName()}/acceptReport`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({reportId: reportId})
+    });
+}
+
+// Borrar reporte
+function deleteReport(reportId) {
+    fetch(`https://${GetParentResourceName()}/deleteReport`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({reportId: reportId})
+    });
+}
+
+// Subir prioridad
+function prioritizeReport(reportId) {
+    fetch(`https://${GetParentResourceName()}/prioritizeReport`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({reportId: reportId})
+    });
+}
+
+// Ejecutar acción del reporte
+function executeReportAction(action, reportId) {
+    fetch(`https://${GetParentResourceName()}/reportAction`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({action: action, reportId: reportId})
+    });
+}
+
+// Botón refrescar reportes
+document.getElementById('refreshReportesBtn').addEventListener('click', function() {
+    loadReports();
+});
+
+// ========== MODAL DE REPORTE ==========
+
+// Abrir modal
+window.addEventListener('message', function(event) {
+    const data = event.data;
+    
+    // ... código existente ...
+    
+    if (data.action === 'openReportModal') {
+        document.getElementById('reportModal').classList.add('active');
+        document.getElementById('reportReason').value = '';
+        document.getElementById('reportDescription').value = '';
+        updateCharCount();
+    } else if (data.action === 'newReport') {
+        // Nuevo reporte recibido, recargar
+        if (document.querySelector('[data-tab="reportes"]').classList.contains('active')) {
+            loadReports();
+        }
+    } else if (data.action === 'refreshReports') {
+        // Actualizar reportes
+        if (document.querySelector('[data-tab="reportes"]').classList.contains('active')) {
+            loadReports();
+        }
+    }
+});
+
+// Cerrar modal
+document.getElementById('closeReportModal').addEventListener('click', closeReportModal);
+document.getElementById('cancelReportBtn').addEventListener('click', closeReportModal);
+
+function closeReportModal() {
+    const reportModal = document.getElementById('reportModal');
+    reportModal.classList.remove('active');
+    
+    setTimeout(() => {
+        reportModal.style.display = 'none';
+    }, 300);
+    
+    // Solo cerrar NUI focus, no cerrar el menú completo
+    fetch(`https://${GetParentResourceName()}/closeReportModal`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({})
+    });
+}
+
+// Contador de caracteres
+document.getElementById('reportDescription').addEventListener('input', updateCharCount);
+
+function updateCharCount() {
+    const textarea = document.getElementById('reportDescription');
+    const count = document.getElementById('descriptionCharCount');
+    count.textContent = `${textarea.value.length}/500 caracteres`;
+}
+
+// Enviar reporte
+document.getElementById('sendReportBtn').addEventListener('click', function() {
+    const reason = document.getElementById('reportReason').value.trim();
+    const description = document.getElementById('reportDescription').value.trim();
+    
+    // Validar campos
+    if (reason === '' || description === '') {
+        // Aquí puedes mostrar una notificación de error
+        console.log('Todos los campos son obligatorios');
+        
+        // Efecto visual en campos vacíos
+        if (reason === '') {
+            document.getElementById('reportReason').style.borderColor = '#ef4444';
+            setTimeout(() => {
+                document.getElementById('reportReason').style.borderColor = '';
+            }, 2000);
+        }
+        
+        if (description === '') {
+            document.getElementById('reportDescription').style.borderColor = '#ef4444';
+            setTimeout(() => {
+                document.getElementById('reportDescription').style.borderColor = '';
+            }, 2000);
+        }
+        
+        return;
+    }
+    
+    // Enviar reporte
+    fetch(`https://${GetParentResourceName()}/sendReport`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            reason: reason,
+            description: description
+        })
+    });
+    
+    closeReportModal();
+});
+
+// Cerrar modal con ESC
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        const reportModal = document.getElementById('reportModal');
+        if (reportModal.classList.contains('active')) {
+            closeReportModal();
+        }
+    }
+});
